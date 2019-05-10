@@ -1,0 +1,126 @@
+
+*{padding:0;margin:0;}
+body{font-family:"微软雅黑";}
+.container{width:1200px;margin-top:30px;position:relative;z-index:999;}
+.xiala1,.xiala2,.xiala3,.xiala4{
+	display:none;position:absolute;top:40px;left:0px;width:100px;padding:10px 0;
+	border:1px solid #333;background:#000;color:#fff;opacity:0.8;
+}
+ul,li{
+	list-style:none;
+}
+ .xiala1 li,.xiala2 li,.xiala3 li,.xiala4 li{
+	margin-left:10px;float:left;margin-left:10px;padding:3px 0;
+} 
+.nav1,.nav2,.nav3,.nav4{float:left;margin-top:18px;position:relative;font-size:16px;}
+/* 在大于300px才执行下列CSS code块 */
+@media (min-width:100px) {
+	
+}
+ 
+@media (min-width:700px) {
+	
+ } 
+ 
+@media (min-width:1200px) {
+	.nav1,.nav2,.nav3,.nav4{padding-right:40px;}
+}
+
+/* 轮播图开始 */
+.carousel{
+	height: 518px;
+	overflow: hidden;
+	margin: 100px auto;
+	position: relative;
+	margin-top:12px;
+	z-index:1;
+}
+.carousel ul{
+	width: 100%;
+	height: 100%;
+}
+.carousel ul li{
+	position: absolute;
+}
+.carousel ul li a img{
+	height: 518px;
+}
+.bullet{
+	position: absolute;
+	font-size: 0;
+	bottom: 20px;
+	left: 50%;
+	margin-left: -42px;
+}
+.bullet span{
+display: inline-block;
+width: 10px;
+height: 10px;
+background-color: #ffffff;
+margin-left: 15px;
+border-radius: 10px;
+}
+.bullet span:first-child{
+	margin-left: 0;
+}
+.switch span{
+position: absolute;
+width: 50px;
+height: 50px;
+line-height: 50px;
+text-align: center;
+background-color: rgba(0,0,0,.1);
+font-size: 20px;
+color: #ffffff;
+top: 50%;
+margin-top: -25px;
+cursor: pointer;
+font-family: "宋体";
+} 
+.switch span:hover{
+
+background-color: rgba(0,0,0,.5);
+
+}
+.prev{
+	left: 0;
+}
+.next{
+	right: 0;
+}
+.active{
+	background-color: red !important;
+}
+.image-enter-active{
+	transform:translateX(0);
+	transition:all 1s ease;
+}
+.image-leave-active{
+	transform:translateX(-100%);
+	transition:all 1s ease
+}
+.image-enter{
+	transform:translateX(100%);
+}
+.image-leave{
+	transform:translateX(0);
+}
+/* 轮播图结束 */
+.nav1:hover,.nav2:hover,.nav3:hover,.nav4:hover{color:#ef401d;}
+.xiala1 li:hover,.xiala2 li:hover,.xiala3 li:hover,.xiala4 li:hover{width:100px;margin-left:-2px;padding-left:12px;color:#ef401d;background:#888;}
+.thumbnail{width:350px;height:218px;}
+.title{width:400px;height:30px;margin:0 auto;margin-bottom:20px;}
+.xian1{width:100px;height:15px;float:left;border-bottom:1px solid #888;}
+.tuijian{display:inline-block;width:200px;height:30px;float:left;font-size:20px;text-align:center;font-weight:600;color:#000;}
+.xian2{width:100px;height:20px;float:left;border-bottom:1px solid #888;}
+.jx{padding-top:10px;margin-bottom:10px;}
+.jx:hover{padding-top:10px;outline:#ef401d solid 1px;}
+.jx:hover .thumbnail img{margin-top:0.2px;}
+.caption h5{color:#222;font-weight:400;font-size:18px;}
+.kg{margin-top:10px;}
+.daoduan2,.daoduan3{margin-top:20px;padding-bottom:6px;border-bottom:1px solid #e2e2e2;}
+.daoduan1{padding-bottom:6px;border-bottom:1px solid #e0e0e0;}
+.daoduan1 span,.daoduan2 span,.daoduan3 span{font-weight:700;}
+.daoduan1 span,.daoduan2 span,.daoduan3 span{margin-right:15px;}
+.daoduan1 a,.daoduan2 a,.daoduan3 a{color:#333;margin:0 7px;}
+.daoduan1 a:hover,.daoduan2 a:hover,.daoduan3 a:hover{color:#ef401d;text-decoration:none;}
