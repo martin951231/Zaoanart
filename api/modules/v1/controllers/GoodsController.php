@@ -1629,7 +1629,27 @@ class GoodsController extends ActiveController
     {
         $res = Goods::find()->select('image')->where(['is_login'=>1])->all();
         $num = rand(0,count($res)-1);
-        return $res[$num];
+        $img = $res[$num]['image'];
+        $ch = curl_init();
+        $url = 'http://qiniu.zaoanart.com/'.$img.'?imageInfo';
+        curl_setopt($ch, CURLOPT_URL,$url);
+        // 执行后不直接打印出来
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        // 跳过证书检查
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        // 不从证书中检查SSL加密算法是否存在
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        //执行并获取HTML文档内容
+        $output = json_decode(curl_exec($ch));
+        //释放curl句柄
+        curl_close($ch);
+        $img_info = [
+            'img_name' =>  $img,
+            'width' =>  $output->width,
+            'height' =>  $output->height,
+        ];
+        return $img_info;
     }
 
 }
