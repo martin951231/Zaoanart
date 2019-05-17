@@ -9,6 +9,7 @@ use Yii;
  *
  * @property integer $id
  * @property string $image
+ * @property string $img_name
  * @property string $title
  * @property integer $goods_id
  * @property string $link
@@ -36,7 +37,7 @@ class Ad extends \yii\db\ActiveRecord
             [['goods_id'], 'integer'],
             [['is_appear'], 'boolean'],
             [['created_at', 'updated_at'], 'safe'],
-            [['image'],'file', 'maxFiles' => 10, 'skipOnEmpty' => false,'extensions'=>'jpg,png,gif'],
+            [['image','img_name'],'file', 'maxFiles' => 10, 'skipOnEmpty' => false,'extensions'=>'jpg,png,gif'],
         ];
     }
 
@@ -47,7 +48,8 @@ class Ad extends \yii\db\ActiveRecord
     {
         return [
             'id' => '广告牌ID',
-            'image' => '广告图片',
+            'image' => '图片名',
+            'img_name' => '图片',
             'title' => '广告标题',
             'goods_id' => '商品ID',
             'link' => 'Link',

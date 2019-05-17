@@ -19,7 +19,7 @@ class Ad extends AdModel
     {
         return [
             [['id', 'goods_id'], 'integer'],
-            [['image', 'title', 'link', 'created_at', 'updated_at'], 'safe'],
+            [['image', 'title', 'link', 'created_at', 'updated_at','img_name'], 'safe'],
             [['is_appear'], 'boolean'],
         ];
     }
@@ -68,6 +68,7 @@ class Ad extends AdModel
         ]);
 
         $query->andFilterWhere(['like', 'image', $this->image])
+            ->andFilterWhere(['like', 'img_name', $this->img_name])
             ->andFilterWhere(['like', 'title', $this->title])
             ->andFilterWhere(['like', 'link', $this->link]);
 

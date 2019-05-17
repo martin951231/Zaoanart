@@ -67,18 +67,30 @@ $this->params['breadcrumbs'][] = $this->title;
         'columns' => [
 //            ['class' => 'yii\grid\SerialColumn'],
 
-            'id',
-            'image'=>
             [
-                'attribute'=>'image',
-                'format' => ['image',['width'=>100]],
-                'value' => function($model){
-                    return $model->image;
-                }
+                'attribute'=>'id',
+                'headerOptions' => ['width' => '20'],
+                'content' => function($model){
+                    return $model->id;
+                },
+            ],
+            'image',
+            [
+                'attribute'=>'img_name',
+//                'headerOptions' => ['width' => '400'],
+                'content' => function($model){
+                    return '<a target="_blank" style="display: block;width:88px;height:44px" href="http://qiniu.zaoanart.com/'.$model->img_name.'"><img src="http://qiniu.zaoanart.com/'.$model->img_name.'" height="44"></a>';
+                },
             ],
 
             'title:ntext',
-            'goods_id',
+            [
+                'attribute'=>'goods_id',
+                'headerOptions' => ['width' => '20'],
+                'content' => function($model){
+                    return $model->goods_id;
+                },
+            ],
 //            'link',
 //            [
 //                'attribute' => 'is_appear',
@@ -94,6 +106,7 @@ $this->params['breadcrumbs'][] = $this->title;
             [
                 'attribute' => 'is_appear',
                 'format' => 'text',
+                'headerOptions' => ['width' => '20'],
                 'content' => function($model){
                     if($model['is_appear'] == 0){
                         return "<button id='".$model['id']."' style='cursor:pointer'  class='status btn btn-inverse' date_id='".$model['id']."' status='".$model['is_appear']."'>隐藏</button>";
@@ -142,41 +155,96 @@ $this->params['breadcrumbs'][] = $this->title;
     function create_ad()
     {
         var submit_form = new FormData($("#upload1")['0']);
+        var objFile = document.getElementById("ad-image");
+        var arr = new Array();
+        var res = new Array();
+        arr[0] = objFile.files[0]['name']
+        var data = {
+            'img' : arr
+        }
         $.ajax({
-            url:"/ad/create_image",
+            url:"/ad/gettoken",
             type:"post",
-            data: submit_form,
-            cache: false,
-            processData: false,
-            contentType: false,
-            success:function(msg){
-                var info1 = JSON.parse(msg);
-                var info_title = $("#info_title").val();
-                var info_num = $("#info_num").val();
-                var info_list = $("#info_list").val();
-                var data = {
-                    'id':info1['0'].id,
-                    'info_title':info_title,
-                    'info_num':info_num,
-                    'info_list':info_list
-                };
-                $.ajax({
-                    url:"/ad/create_info",
-                    type:"post",
-                    data: data,
-                    success:function(res){
-                        alert(res);
-                        location.reload();
-                    },
-                    error:function(){
-                        alert('添加失败');
-                        // location.reload();
+            data:data,
+            dataType: "json",
+            success:function(msg1){
+                for(var i=0; i<msg1.length; i++){
+                    var token = msg1[i]['uptoken'];
+                    var file = objFile.files[msg1[i]['data_id']];
+                    var key = msg1[i]['new_name'];
+                    var up_url = 'https://upload-z2.qiniup.com';
+                    var Qiniu_upload = function(file, token, key,i) {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('POST', up_url, true);
+                        var formData, startDate;
+                        formData = new FormData();
+                        if (key !== null && key !== undefined) formData.append('key', key);
+                        formData.append('token', token);
+                        formData.append('file', file);
+                        var taking;
+                        xhr.upload.addEventListener("progress", function(evt) {
+                            if (evt.lengthComputable) {
+                                var nowDate = new Date().getTime();
+                                taking = nowDate - startDate;
+                                var x = (evt.loaded) / 1024;
+                                var y = taking / 1000;
+                                var uploadSpeed = (x / y);
+                                var formatSpeed;
+                                if (uploadSpeed > 1024) {
+                                    formatSpeed = (uploadSpeed / 1024).toFixed(2) + "Mb\/s";
+                                } else {
+                                    formatSpeed = uploadSpeed.toFixed(2) + "Kb\/s";
+                                }
+                                var percentComplete = Math.round(evt.loaded * 100 / evt.total);
+                            }
+                        }, true);
+                        xhr.onreadystatechange = function(response) {
+                            if (xhr.readyState == 4 && xhr.status == 200 && xhr.responseText != "") {
+                                var blkRet = JSON.parse(xhr.responseText);
+                                res.push(i)
+                                if(res.length == msg1.length){
+                                    var info_title = $("#info_title").val();
+                                    var info_num = $("#info_num").val();
+                                    var info_list = $("#info_list").val();
+                                    var data = {
+                                        'img_name': blkRet.img_name,
+                                        'new_name': blkRet.new_name,
+                                        'info_title':info_title,
+                                        'info_num':info_num,
+                                        'info_list':info_list,
+                                    }
+                                    //添加数据库
+                                    $.ajax({
+                                        url:"/ad/create_info",
+                                        type:"post",
+                                        data: data,
+                                        success:function(res){
+                                            alert(res);
+                                            //location.reload();
+                                        },
+                                        error:function(){
+                                            alert('添加失败');
+                                            // location.reload();
+                                        }
+                                    });
+                                }
+                            } else if (xhr.status != 200 && xhr.responseText) {
+                                alert('上传失败,请重试');
+                            }
+                        };
+                        startDate = new Date().getTime();
+                        // $("#progressbar").show();
+                        xhr.send(formData);
+                    };
+                    if (file && token != "") {
+                        Qiniu_upload(file, token, key,i);
+                    } else {
+                        console && console.log("form input error");
                     }
-                });
+                }
             },
-            error:function(data){
-                alert('添加失败');
-                // location.reload();
+            error:function(msg){
+
             }
         });
     }

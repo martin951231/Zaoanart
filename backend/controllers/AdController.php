@@ -6,6 +6,8 @@ use Yii;
 use backend\models\Ad;
 use backend\models\search\Ad as AdSearch;
 use yii\web\Controller;
+use Qiniu\Auth;
+use Qiniu\Storage\UploadManager;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 
@@ -234,13 +236,56 @@ class AdController extends Controller
         $info_title = $_POST['info_title'];
         $info_num = $_POST['info_num'];
         $info_list = $_POST['info_list'];
-        $res1=$res2=$res3=0;
-        if($info_title){$res1 = Ad::updateAll([ 'title' => $info_title],['id'=>$_POST['id']]);}
-        if($info_num){$res2 = Ad::updateAll([ 'goods_id' => $info_num],['id'=>$_POST['id']]);}
-        if($info_list){$res3 = Ad::updateAll([ 'is_appear' => $info_list],['id'=>$_POST['id']]);}
-        if($res1 || $res2 || $res3){
-            return "添加成功";
+        $img_name = $_POST['img_name'];
+        $new_name = $_POST['new_name'];
+        $res = Yii::$app->db->createCommand()
+            ->insert('tsy_ad',[
+                'image' => $img_name,
+                'img_name' => $new_name,
+                'title' => $info_title,
+                'goods_id' => $info_num,
+                'is_appear' => $info_list,
+            ])
+            ->execute();
+        $result_id = Yii::$app->db->getLastInsertID();
+        if($result_id){
+            return '添加成功';
+        }else{
+            return '添加失败';
         }
+    }
+    //上传七牛云获取token
+    public function actionGettoken()
+    {
+        $ak = 'mSlTl2-S30-y-d6BVAVQWx0eh_GHGvmMutQkulCk';
+        $sk = 'Yjq9vpfthYcVXeIeGRWKmhp0J4xuvxgp6SN5YVD5';
+        $bucket = 'zaoanart';
+        $time = time()+60*60;
+        for($i=0; $i<count($_POST['img']); $i++){
+            $new_name = 'ad'.date('YmdHis'.rand(0,999999)).'.jpg';
+            $body = [
+                'img_name' => $_POST['img'][$i],
+                'new_name' => $new_name,
+                'img_width' => '$(imageInfo.width)',
+                'img_height' => '$(imageInfo.height)'
+            ];
+            $putPolicy = [
+                'scope ' => $_POST['img'][$i],
+                'deadline' => $time,
+                'returnBody' => json_encode($body)
+            ];
+
+            $auth = new auth($ak,$sk);
+            $token = $auth->uploadToken($bucket,null,3600,$putPolicy);
+
+            $uploadToken_json[$i] = [
+                'uptoken' => $token,
+                'img_name' => $_POST['img'][$i],
+                'new_name' => $new_name,
+                'data_id' => array_flip($_POST['img'])[$_POST['img'][$i]]
+            ];
+        }
+        return json_encode($uploadToken_json);
     }
 }
 

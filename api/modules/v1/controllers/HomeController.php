@@ -8,6 +8,7 @@ use backend\models\random;
 use backend\models\account;
 use backend\models\goods;
 use backend\models\keep;
+use backend\models\ad;
 use backend\models\keepimage;
 use backend\models\Shopcar;
 use backend\models\History;
@@ -768,6 +769,14 @@ class HomeController extends ActiveController
             Shopcar::updateAll(['excel_name'=>iconv('GB2312','UTF-8',$filename)],['id'=>$_POST['data']['id']]);
             return iconv('GB2312','UTF-8',$filename);
         }
+    }
+    public function actionFindlunbotu()
+    {
+        $res = Ad::find()->select('img_name')->where(['is_appear'=>1])->all();
+        for($i=0;$i<count($res);$i++){
+            $info[$i] = $res[$i]['img_name'];
+        }
+        return $info;
     }
 }
 ?>
