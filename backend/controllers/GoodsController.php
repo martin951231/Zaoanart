@@ -1034,6 +1034,8 @@ class GoodsController extends Controller
                     'category' => 999,
                     'theme' => 999,
                     'color'=>$color,
+                    'img_width'=>$img_info[0],
+                    'img_height'=>$img_info[1],
                     'max_width'=>88,
                     'max_length'=>88/($img_info[0]/$img_info[1])
                 ])

@@ -156,6 +156,26 @@ return [
                 [
                     'class' => 'yii\rest\UrlRule',
                     'controller' => [
+                        'v1/weixin'
+                    ],
+                    'pluralize'  => false,
+                    'extraPatterns' => [
+                        'GET getcate' => 'getcate',
+                        'GET getcate2' => 'getcate2',
+                        'GET gettheme' => 'gettheme',
+                        'GET getcateimg' => 'getcateimg',
+                        'GET getthemeimg' => 'getthemeimg',
+                        'GET getsearchimg' => 'getsearchimg',
+                        'GET getimg' => 'getimg',
+                        'GET getlikeimage' => 'getlikeimage',
+                        'GET getkeep' => 'getkeep',
+                        'GET getkeepimg' => 'getkeepimg',
+                        'GET upmysql' => 'upmysql',
+                    ]
+                ],
+                [
+                    'class' => 'yii\rest\UrlRule',
+                    'controller' => [
                         'v1/home'
                     ],
                     'pluralize'  => false,
