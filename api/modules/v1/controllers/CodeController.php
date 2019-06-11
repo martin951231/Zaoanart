@@ -84,7 +84,7 @@ class CodeController extends ActiveController
     public function actionCodetel()
     {
         $tel = $_GET['telephone'];
-        $res = Account::find()->where(['phone'=>$tel])->one();
+        $res = Account::find()->where(['phone'=>$tel])->andWhere(['is_deleted'=>0])->one();
         if($res){
             return 1;//用户存在
         }else{

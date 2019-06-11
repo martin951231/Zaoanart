@@ -6,12 +6,16 @@ use yii\rest\ActiveController;
 use yii\filters\auth\CompositeAuth;
 use yii\filters\auth\QueryParamAuth;
 use yii\data\ActiveDataProvider;
+use Qiniu\Auth;
 use backend\models\goods;
+use backend\models\account;
 use backend\models\category;
 use backend\models\theme;
 use backend\models\label;
 use backend\models\keep;
 use backend\models\keepimage;
+use backend\models\BorderMaterial;
+use backend\models\Boxseries;
 
 class WeixinController extends ActiveController
 {
@@ -282,7 +286,7 @@ class WeixinController extends ActiveController
     {
         $img_id = $_GET['id'];
         $res = Goods::find()
-            ->select('id,name,category,theme,image')
+            ->select('id,name,category,theme,image,img_width')
             ->where(['id'=>$img_id])
             ->andWhere(['is_appear'=>1])
             ->one();
@@ -292,6 +296,7 @@ class WeixinController extends ActiveController
                 'name'=>$res['name'],
                 'category'=>$res['category'],
                 'theme'=>$res['theme'],
+                'img_width'=>$res['img_width'],
                 'image'=>'http://qiniu.zaoanart.com/'.$res['image'],
             ];
             return $info;
@@ -398,15 +403,17 @@ class WeixinController extends ActiveController
         $keep = keep::find()->select('id,keep_name')->where(['status'=>1])->all();
         if($keep){
             for($i = 0; $i<count($keep);$i++){
-                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]])->limit(3)->all();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(3)->all();
                 for ($k = 0; $k<count($res2[$i]);$k++){
                     $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
-                    $res[$i][] = [
-                        'keep_id' => $keep[$i]['id'],
-                        'keep_name' => $keep[$i]['keep_name'],
-                        'imgid' => $res2[$i][$k]['imgid'],
-                        'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/1/w/200/h/200'
-                    ];
+                    if($res2[$i][$k]['imgid']){
+                        $res[$i][] = [
+                            'keep_id' => $keep[$i]['id'],
+                            'keep_name' => $keep[$i]['keep_name'],
+                            'imgid' => $res2[$i][$k]['imgid'],
+                            'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/1/w/200/h/200'
+                        ];
+                    }
                 }
             }
             sort($res);
@@ -429,7 +436,6 @@ class WeixinController extends ActiveController
             $res = Goods::find()
                 ->select('id,image,name,img_height')
                 ->where(['id'=>$good_id[$i]['imgid']])
-                ->andWhere(['or',['<>','category',999],['<>','theme',999]])
                 ->andWhere(['is_appear'=>1])
                 ->one();
             if($res){
@@ -438,11 +444,440 @@ class WeixinController extends ActiveController
                     'image'=> 'http://qiniu.zaoanart.com/'.$res['image'],
                     'name'=> $res['name'],
                     'img_height'=> $res['img_height'],
+                    'checked'=>false
                 ];
             }
         }
         $info['start'] = $start+$pageSize;
         return $info;
+    }
+
+    //获取装裱图框
+    public function actionGetborderimg()
+    {
+        $res = BorderMaterial::find()->select('id,img_name,sid,border_name,preview_img,price,face_width,Thickness')->all();
+        for($i=0;$i<count($res);$i++){
+            $num = $res[$i]['sid'];
+            $info[$num][] = [
+                'id' =>$res[$i]['id'],
+                'img_name' =>$res[$i]['img_name'],
+                'border_name' =>$res[$i]['border_name'],
+                'preview_img' =>'http://www.zaoanart.com:8000/test/preview/'.$res[$i]['preview_img'],
+                'price' =>$res[$i]['price'],
+                'sid' => $res[$i]['sid'],
+                'face_width' =>$res[$i]['face_width'],
+                'Thickness' =>$res[$i]['Thickness'],
+                'border_name2' =>substr($res[$i]['border_name'],0,strpos($res[$i]['border_name'], '_')),
+            ];
+        }
+        ksort($info);
+        return $info;
+    }
+
+    //获取画框色系
+    public function actionGetborderseries()
+    {
+        $res = Boxseries::find()->select('id,series_name')->all();
+        ksort($res);
+        return $res;
+    }
+
+    //装裱
+    public function actionDecoration()
+    {
+        $border_name = 'http://qiniu.zaoanart.com/'.$_GET['border_name'];
+        $img_name = $_GET['img_name'];
+        $face_width = $_GET['face_width']*15;
+        $box_img_width = intval($_GET['box_width']);
+        $box_img_height = intval($_GET['box_height']);
+        //获取装框图像大小
+        $image_size = getimagesize($img_name);
+        $image_size2 = getimagesize($border_name);
+        $face = $image_size2[0];
+        $img_width = $image_size[0];
+        $img_height = $image_size[1];
+        //缩小比例
+        $small_bili = $img_width/$box_img_width;
+        $face_widths = intval($face_width/$small_bili);
+        //图片比例
+        $bili = $img_width/$img_height;
+        //图片保存路径
+        $path = Yii::getAlias('@backend').'\web\test\\';
+        //设置头部
+        header("Content-type:image/png;");
+        //框宽(外框宽)
+        $box_width = $box_img_width;
+        //框高(外框高)
+        $box_height = $box_img_height;
+        //主图
+        $main_img = imagecreatefromjpeg($img_name);
+        //左图
+        $left_img = imagecreatetruecolor($face_widths,$box_height);
+        //源图像
+        $root_img = imagecreatefromjpeg($border_name);
+        //生成一个画板
+        $new_img = imagecreatetruecolor($box_img_width,$box_img_height);
+        //设置背景颜色(0.255.255, 65535)
+        $color = imagecolorallocate($new_img, 255, 255, 255);
+        //填充颜色
+        imagefill($new_img,0,0,$color);
+//        imagecolortransparent($new_img,65280);
+        //复制主图
+//        imagecopyresized($new_img,$main_img,$face_widths,$face_widths,0,0,$box_img_width-$face_widths*2,$box_img_height-$face_widths*2,$img_width,$img_height);
+        imagecopyresampled($new_img,$main_img,$face_widths,$face_widths,0,0,$box_img_width-$face_widths*2,$box_img_height-$face_widths*2,$img_width,$img_height);
+        //copy所需画框区域(拉伸)
+        imagecopyresampled($left_img,$root_img,0,0,0,0,$face_widths,$box_height,$face,3600);
+        //设置三角形顶点位置
+        $points = [
+            0,0,
+            $face,0,
+            $face,$face
+        ];
+        //设置颜色
+        $blue = imagecolorallocate($left_img, 0, 255, 0);
+        //画三角形
+        imagefilledpolygon($left_img,$points,3,$blue);
+        //设置三角形顶点位置
+        $points2 = [
+            0,$box_height,
+            $face,$box_height,
+            $face,$box_height-$face,
+        ];
+        //设置颜色
+        $green = imagecolorallocate($left_img, 0, 255, 0);
+        //画三角形
+        imagefilledpolygon($left_img,$points2,3,$green);
+        //设置透明色
+        imagecolortransparent($left_img,65280);
+        //下图
+        $bottom_img = imagecreatetruecolor($box_width,$face_widths);
+        //逆时针旋转90度生成下边图
+        $root_img = imagerotate($root_img,90,0);
+        //copy所需画框区域(拉伸)
+        imagecopyresampled($bottom_img,$root_img,0,0,0,0,$box_width,$face_widths,3600,$face);
+        //复制下框
+        imagecopyresized($new_img,$bottom_img,0,$box_img_height-$face_widths,0,0,$box_img_width,$face_widths,$box_img_width,$face_widths);
+        //垂直对称下图生成上图
+        imageflip($bottom_img,IMG_FLIP_VERTICAL);
+        //复制上框
+        imagecopyresized($new_img,$bottom_img,0,0,0,0,$box_img_width,$face_widths,$box_img_width,$face_widths);
+        //复制左框
+        imagecopyresized($new_img,$left_img,0,0,0,0,$face_widths,$box_img_height,$face_widths,$box_img_height);
+        //垂直对称左图生成右图
+        imageflip($left_img,IMG_FLIP_HORIZONTAL);
+        //复制右框
+        imagecopyresized($new_img,$left_img,$box_img_width-$face_widths,0,0,0,$face_widths,$box_img_height,$face_widths,$box_img_height);
+//        imagecolortransparent($new_img,65280);
+        imagepng($new_img);die;
+        imagepng($new_img,$path.'bgimg.png');
+        $img_info = filesize($path.'bgimg.png');
+        $fp = fopen($path.'bgimg.png', "r");
+        $content = fread($fp,$img_info);
+        $img_str = chunk_split(base64_encode($content));
+        $img_base64 = $img_str;
+        $info = [
+            'url'=>$img_base64
+        ];
+        return $info;
+    }
+
+    //登录
+    public function actionLogin()
+    {
+        $username = $_GET['username'];
+        $password = $_GET['password'];
+        $res = Account::find()->select('id,password')->where(['phone'=>$username])->andWhere(['is_deleted'=>0])->one();
+        $name = 'ZaoanArt';
+        $data = date('Y.m.d-H:i:s');
+        $rand = rand(1,9999);
+        $str = md5($name.$data.$rand);
+        $token = $res['id'].'$ZaoAn.u'.password_hash($str.$password,PASSWORD_DEFAULT);
+        $info['token'] = $token;
+        $info['user_id'] = $res['id'];
+        return $info;
+    }
+
+    //获取用户收藏夹
+    public function actionGetukeep()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        if($uid){
+            $res = Keep::find()->select('id,keep_name,heat')->where(['uid'=>$uid])->all();
+            if($res){
+                for($i=0;$i<count($res);$i++){
+                    $info[] = [
+                        'uid'=>$uid,
+                        'id'=>$res[$i]['id'],
+                        'keep_name'=>$res[$i]['keep_name'],
+                        'heat'=>$res[$i]['heat'],
+                    ];
+                }
+                return $info;
+            }else{
+                return 1;//暂无收藏夹
+            }
+        }
+    }
+
+    //图片添加到收藏夹
+    public function actionAddkeep()
+    {
+        if($_GET){
+            $uid = $_GET['uid'];
+            $kid = $_GET['kid'];
+            $img_id = $_GET['img_id'];
+        }else{
+            return false;
+        }
+        $res = keep::updateAll(['updated_at'=>date("Y-m-d H:i:s")],['uid'=>$uid,'id'=>$kid]);
+        $img = keepimage::find()->where(['kid'=>$kid,'imgid' => $img_id,])->all();
+        if($img){
+            return 1;
+        }
+        $res2 = Yii::$app->db->createCommand()
+            ->insert('tsy_keep_image',[
+                'imgid' => $img_id,
+                'created_at'=>date("Y-m-d H:i:s"),
+                'kid'=>$kid
+            ])
+            ->execute();
+        if($res2){
+            return 0;
+        }
+    }
+
+    //获取我的收藏夹
+    public function actionGetmykeep()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $keep = keep::find()->select('id,keep_name')->where(['uid'=>$uid])->all();
+        $res = [];
+        if($keep){
+            for($i = 0; $i<count($keep);$i++){
+                $res2 = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(3)->all();
+                if(!$res2){
+                    $res[$i][] = [
+                        'keep_id' => $keep[$i]['id'],
+                        'keep_name' => $keep[$i]['keep_name'],
+                        'imgid' => '',
+                        'image' => ''
+                    ];
+                }
+                for ($k = 0; $k<count($res2);$k++){
+                    $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$k]['imgid']])->one();
+                    if($res2[$k]['imgid']){
+                        $res[$i][] = [
+                            'keep_id' => $keep[$i]['id'],
+                            'keep_name' => $keep[$i]['keep_name'],
+                            'imgid' => $res2[$k]['imgid'],
+                            'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/1/w/200/h/200'
+                        ];
+                    }
+                }
+            }
+            sort($res);
+            return $res;
+        }
+    }
+
+    //添加收藏夹
+    public function actionAddnewkeep()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $keep_name = $_GET['keep_name'];
+        $res = keep::find()->select('id')->where(['keep_name'=>$keep_name])->all();
+        if($res){
+            return 1;//收藏夹名字重复
+        }
+        $res = Yii::$app->db->createCommand()
+            ->insert('tsy_keep',[
+                'uid' => $uid,
+                'keep_name' => $keep_name
+            ])
+            ->execute();
+        $kid = Yii::$app->db->getLastInsertId();
+        if($kid){
+            return 0;//添加成功
+        }else{
+            return 2;//添加失败
+        }
+    }
+
+    //修改收藏夹名
+    public function actionUpdatekeep()
+    {
+        $kid = intval($_GET['keep_id']);
+        $keep_name = $_GET['keep_name'];
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $res = keep::find()->select('id')->where(['uid'=>$uid])->andWhere(['keep_name'=>$keep_name])->all();
+        if($res){
+            return 1;
+        }
+        $res2 = keep::updateAll(['keep_name' => $keep_name], ['id'=>$kid,'uid'=>$uid]);
+        if($res2){
+            return 0;
+        }
+    }
+
+    //删除收藏夹
+    public function actionDeletekeep()
+    {
+        $kid = intval($_GET['keep_id']);
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        if($kid && $uid){
+            $res = keepimage::deleteAll(['kid'=>$kid]);
+            $res2 = keep::deleteAll(['id'=>$kid,'uid'=>$uid]);
+            if($res || $res2){
+                return 0;
+            }else{
+                return 1;
+            }
+        }
+    }
+
+    //获取用户收藏夹2
+    public function actionGetukeep2()
+    {
+        $keep_id = intval($_GET['keep_id']);
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        if($uid){
+            $res = Keep::find()->select('id,keep_name,heat')->where(['uid'=>$uid])->andWhere(['<>','id',$keep_id])->all();
+            if($res){
+                for($i=0;$i<count($res);$i++){
+                    $info[] = [
+                        'uid'=>$uid,
+                        'id'=>$res[$i]['id'],
+                        'keep_name'=>$res[$i]['keep_name'],
+                        'heat'=>$res[$i]['heat'],
+                    ];
+                }
+                return $info;
+            }else{
+                return 1;//暂无收藏夹
+            }
+        }
+    }
+
+    //批量删除
+    public function actionDeleteimg()
+    {
+        $keep_id = intval($_GET['keep']);
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $img_id = explode(",", $_GET['img_id']);
+        $img_id = array_filter($img_id);
+        sort($img_id);
+        if($keep_id && $uid && $img_id){
+            for($i=0;$i<count($img_id);$i++){
+                $res = keepimage::deleteAll(['imgid'=>intval($img_id[$i]),'kid'=>$keep_id]);
+            }
+            if($res){
+                return 1;
+            }else{
+                return false;
+            }
+        }else{
+            return false;
+        }
+    }
+
+    //批量移动
+    public function actionMoveimg()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $new_keep = intval($_GET['to_keep']);
+        $old_keep = intval($_GET['keep']);
+        $img_id = explode(",", $_GET['img_id']);
+        $img_id = array_filter($img_id);
+        sort($img_id);
+        $res1 = $res2 = false;
+        for($i=0;$i<count($img_id);$i++){
+            $res = keepimage::find()->where(['imgid'=>$img_id[$i],'kid'=>$new_keep])->one();
+            if($res){
+                $res1 = keepimage::deleteAll(['imgid'=>$img_id[$i],'kid'=>$old_keep]);
+                continue;
+            }else{
+                $res2 = keepimage::updateAll(['updated_at'=>date("Y-m-d H:i:s"),'kid'=>$new_keep],['kid'=>$old_keep,'imgid'=>$img_id[$i]]);
+            }
+        }
+        if($res1 || $res2){
+            return 1;
+        }else{
+            return false;
+        }
+    }
+
+    //批量复制
+    public function actionCopyimg()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $new_keep = intval($_GET['to_keep']);
+        $old_keep = intval($_GET['keep']);
+        $img_id = explode(",", $_GET['img_id']);
+        $img_id = array_filter($img_id);
+        sort($img_id);
+        $res = $res2 = false;
+        for($i=0;$i<count($img_id);$i++){
+            $res = keepimage::find()->where(['imgid'=>$img_id[$i],'kid'=>$new_keep])->all();
+            if($res){
+                continue;
+            }else{
+                $res2 = Yii::$app->db->createCommand()
+                    ->insert('tsy_keep_image',[
+                        'imgid' => $img_id[$i],
+                        'created_at'=>date("Y-m-d H:i:s"),
+                        'kid'=>$new_keep
+                    ])
+                    ->execute();
+            }
+        }
+        if($res || $res2){
+            return 1;
+        }else{
+            return 2;
+        }
+    }
+
+    //获取微信手机号
+    public function actionGetwxphone()
+    {
+        $code = $_GET['code'];
+        $appid = "wxa0a3e0beee9f0e98";
+        $secret = "76bc2ec854b8de862ffc94a2676839ba";
+        $url = 'https://api.weixin.qq.com/sns/jscode2session?appid='.$appid.'&secret='.$secret.'&js_code='.$code.'&grant_type=authorization_code';
+        $info = file_get_contents($url);//get请求网址，获取数据
+        $jsonObj = json_decode($info);
+        return $jsonObj;
+    }
+
+
+    //生成水印参数
+    public function actionJiashuiyin()
+    {
+        $ImageURL = 'http://qiniu.zaoanart.com/20190409074000729034.jpg';
+        $shuiyin_img = 'http://www.zaoanart.com:8000/images/zaoanart_logo_shuiyin.png';
+//        $base64URL = Qiniu\base64_urlSafeEncode($ImageURL);
+        $find = array('+', '/');
+        $replace = array('-', '_');
+        $url = str_replace($find, $replace, base64_encode($shuiyin_img));
+        var_dump($url);die;
     }
 
     public function actionUpmysql()

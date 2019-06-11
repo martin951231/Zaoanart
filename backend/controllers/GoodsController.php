@@ -908,24 +908,27 @@ class GoodsController extends Controller
         $id = $_POST['id'];
         $res = goods::find()->select('label,id')->where(['id'=>$id])->one();
         $label = explode(',',$res['label']);
+        $label = array_filter($label);
+        sort($label);
         $id = $res['id'];
-        $name = [];
         for($i = 0;$i<count($label);$i++){
             $data = label::find()->select('label_name,id')->where(['id'=>$label[$i]])->one();
             $label_name = $data['label_name'];
             $label_id = $data['id'];
-            $info[] = [
-                'id'=>$label[$i],
-                'label_name'=> $label_name
-            ];
-        }
-        for($num = 0;$num<count($info);$num++){
-            if($info[$num]['label_name']){
-                $name[] = $info[$num]['id'];
+            if($data){
+                $info[] = [
+                    'id'=>$label[$i],
+                    'label_name'=> $label_name
+                ];
             }
         }
-        $labels = implode(',',$name);
-        goods::updateAll(['label' => $labels], ['id'=>$id]);
+//        for($num = 0;$num<count($info);$num++){
+//            if($info[$num]['label_name']){
+//                $name[] = $info[$num]['id'];
+//            }
+//        }
+//        $labels = implode(',',$name);
+//        goods::updateAll(['label' => $labels], ['id'=>$id]);
         return json_encode($info);
     }
 
@@ -937,6 +940,7 @@ class GoodsController extends Controller
         $info = goods::find()->select('label')->where(['id'=>$id])->one();
         $label = trim($info['label'].','.$label_id,',');
         $labels = array_unique(explode(',',$label));
+        $labels = array_filter($labels);
         sort($labels);
         $label = ','.implode(',',$labels).',';
         $res = goods::updateAll(['label' => $label],['id'=>$id]);
@@ -954,12 +958,15 @@ class GoodsController extends Controller
         $label_id = $_POST['label_id'];
         $info = goods::find()->select('label')->where(['id'=>$id])->one();
         $label = explode(',',$info['label']);
+
         foreach($label as $k=>$v){
             if($v == $label_id){
                 unset($label[$k]);
             }
         }
-        $new_label = implode(',',$label);
+        $label = array_filter($label);
+        sort($label);
+        $new_label = ','.implode(',',$label).',';
         $res = goods::updateAll(['label' => $new_label], ['id'=>$id]);
         if($res){
             $result[]=[

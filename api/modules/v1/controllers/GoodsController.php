@@ -1472,7 +1472,8 @@ class GoodsController extends ActiveController
             for($i = 0; $i < count($label2); $i++){
                 $label_str .= 'and (`label` LIKE "%,'.$label2[$i].',%") ';
             }
-            $may_img_arr1 = Yii::$app->db->createCommand("select `id`,`image` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str." AND `max_length` ".$contrast." `max_width`")->queryAll();
+            $may_img_arr1 = Yii::$app->db->createCommand("select `id`,`image` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str." AND (`max_length` ".$contrast." `max_width`)")->queryAll();
+            var_dump($may_img_arr1);die;
             $res = [];
             foreach($may_img_arr as $k=>$v){
                 if(!isset($res[$v['id']])){
@@ -1500,7 +1501,7 @@ class GoodsController extends ActiveController
             for($q = 0; $q < count($label2); $q++){
                 $label_str2 .= 'and (`label` LIKE "%,'.$label2[$q].',%") ';
             }
-            $may_img_arr2 = Yii::$app->db->createCommand("select `id`,`image` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str2." AND `max_length` ".$contrast." `max_width`")->queryAll();
+            $may_img_arr2 = Yii::$app->db->createCommand("select `id`,`image` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str2." AND (`max_length` ".$contrast." `max_width`)")->queryAll();
             $res = [];
             foreach($may_img_arr as $k=>$v){
                 if(!isset($res[$v['id']])){
