@@ -71,6 +71,8 @@ $this->params['breadcrumbs'][] = $this->title;
     <h1><?php //Html::encode($this->title) ?></h1>
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
     <p>
+        <link href="https://cdn.bootcss.com/toastr.js/2.1.4/toastr.min.css" rel="stylesheet">
+        <script src="https://cdn.bootcss.com/toastr.js/2.1.4/toastr.min.js"></script>
         <!-- 模态框按钮 -->
         <button type="button" class="btn btn-warning" data-toggle="modal" onclick="modal_show()">批量添加</button>
         <!-- 模态框 -->
@@ -112,7 +114,7 @@ $this->params['breadcrumbs'][] = $this->title;
         <td colspan="14" style="text-align: left;">
             <select id="batch_edit"  class="form-control select_input">
                 <option value="0" style="font-weight:bold">选择操作</option>
-                <option value="1">删除</option>
+<!--                <option value="1">删除</option>-->
                 <option value="2">显示</option>
                 <option value="3">隐藏</option>
                 <option value="4">推荐</option>
@@ -172,10 +174,14 @@ $this->params['breadcrumbs'][] = $this->title;
         <td colspan="14" style="text-align: left;">
             <input id="batch_edit_premium" type="text" placeholder="溢价指数" class="form-control select_input">
 <!--            <input id="batch_edit_label" type="text" placeholder="标签" class="form-control select_input">-->
-            <span  style="left:40%;cursor:pointe;" class='btn btn-info label_view' data-toggle='modal' data-target='#label_all_Modal' onclick="select_label_all()">点击查看</span>
-            <input id="confirm_select" type="button" class="btn btn-primary" value="确认" onclick="confirm_select_all()">
+            <input id="confirm_select" type="button" class="btn btn-primary" value="批量修改" onclick="confirm_select_all()">
         </td>
     </tr>
+    <div>
+        <span  style="cursor:pointe;display: inline-block;width: 150px;margin:5px 0px;" class='btn btn-info label_view' data-toggle='modal' data-target='#label_all_Modal' onclick="select_label_all()">批量添加标签</span>
+        <span  style="cursor:pointe;display: inline-block;width: 150px;margin:5px 0px;" class='btn btn-danger label_view' data-toggle='modal'  onclick="delete_label_all()">批量删除标签</span>
+    </div>
+
 <!--    每页显示数量-->
     <div>
         <input id="pagesize" type="text" placeholder="每页显示数量" style="width:100px">
@@ -225,7 +231,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <div class="modal-content">
                 <div class="modal-header">
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                    <h4 class="modal-title" id="myModalLabel">查看标签</h4>
+                    <h4 class="modal-title" id="myModalLabel">批量添加标签</h4>
                 </div>
                 <div class="modal-body">
                     <div>
@@ -237,7 +243,32 @@ $this->params['breadcrumbs'][] = $this->title;
                     </div>
                     <div style="margin-top:10px">
                         <span  style="margin-top:10px"  data-toggle='tooltip' data-placement='right' title='点击下列标签添加,点击❌删除'>常用标签<span style="color:red">(点击下方红色❌即会删除常用标签,请小心操作)</span>&nbsp&nbsp：&nbsp</span><br>
-                        <div id="label_list_all" style="margin-top:10px;height:300px;border:double #ccc;overflow: scroll;background-color: antiquewhite;">
+                        <div id="label_list_all" style="margin-top:10px;border:double #ccc;overflow: scroll;background-color: antiquewhite;">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 批量删除标签模态框 -->
+    <div class="modal fade" id="delete_all_Modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+        <div class="modal-dialog" role="document" style="width:90%;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">批量删除标签</h4>
+                </div>
+                <div class="modal-body">
+                    <div>
+                        <button  type="button" id="show_del_labels2" style="display:inline-block" class="btn btn-warning" onclick="del_label_lists2(event)">删除</button>
+                        <button  type="button" id="hide_del_labels2" style="display:none" class="btn btn-default" onclick="del_label_list1s2(event)">取消</button>
+                    </div>
+                    <div style="margin-top:10px">
+                        <span  style="margin-top:10px"  data-toggle='tooltip' data-placement='right'>现有标签<br>
+                        <div id="delete_label_list_all" style="margin-top:10px;height: 500px;border:double #ccc;overflow: scroll;background-color: antiquewhite;">
                         </div>
                     </div>
                 </div>
@@ -280,7 +311,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 'content'=>function($model){
         if($model->is_face == 0){
             return "<button id='upname1".$model['id']."' class='btn btn-info' style='display:block' data_id='".$model->is_face."' onclick='up_is_face(".$model->id.")'>显示</button>
-                        <span id='upname".$model['id']."' title='双击修改' style='cursor:pointer;color:#FF830F;width:200px;display: inline-block;white-space:pre-wrap   ;word-break: break-all;' ondblclick='update_name(".$model->id.")' date_id='".$model['id']."' data-toggle='tooltip' data-placement='bottom' >".$model['name']."</span>";
+                        <span id='upname".$model['id']."' title='双击修改' style='cursor:pointer;color:#FF830F;width:200px;display: inline-block;white-space:pre-wrap;word-break: break-all;' ondblclick='update_name(".$model->id.")' date_id='".$model['id']."' data-toggle='tooltip' data-placement='bottom' >".$model['name']."</span>";
         }else{
             return "<button id='upname1".$model['id']."' class='btn btn-inverse' style='display:block' data_id='".$model->is_face."' onclick='up_is_face(".$model->id.",".$model->is_face .")'>隐藏</button>
                         <span id='upname".$model['id']."' title='双击修改' style='cursor:pointer;color:#FF830F;width:200px;display: inline-block;white-space:pre-wrap   ;word-break: break-all;' ondblclick='update_name(".$model->id.")' date_id='".$model['id']."' data-toggle='tooltip' data-placement='bottom' >".$model['name']."</span>";
@@ -1414,6 +1445,20 @@ $this->params['breadcrumbs'][] = $this->title;
         $("select[name='GoodsSearch[color]'] option[value='10']").css('background','rgb(0,0,0)');
         $("select[name='GoodsSearch[color]'] option[value='11']").css('background','rgb(120,120,120)');
     }
+    toastr.options = {
+        closeButton: true,
+        debug: false,
+        positionClass: "toast-top-center",
+        onclick: null,
+        showDuration: "300",
+        hideDuration: "1000",
+        timeOut: "1500",
+        progressBar: false,
+        showEasing: "swing",
+        hideEasing: "linear",
+        showMethod: "fadeIn",
+        hideMethod: "fadeOut"
+    };
     function modal_show(){
         $("#myModal").modal('show')
         var el = document.getElementById('create_info');
@@ -2455,6 +2500,18 @@ $this->params['breadcrumbs'][] = $this->title;
         $("#show_del_labels").css('display','inline-block')
         $(".label_span_all").css('display','none')
     }
+    //批量显示删除标签按钮2
+    function del_label_lists2(e){
+        $(e.target).css('display','none')
+        $("#hide_del_labels2").css('display','inline-block')
+        $(".label_span_all2").css('display','inline-block')
+    }
+    //批量显示取消删除标签按钮2
+    function del_label_list1s2(e){
+        $(e.target).css('display','none')
+        $("#show_del_labels2").css('display','inline-block')
+        $(".label_span_all2").css('display','none')
+    }
     //添加我的标签
     function add_mylabel(label_id,id){
         var data = {
@@ -2518,26 +2575,29 @@ $this->params['breadcrumbs'][] = $this->title;
     }
     //删除常用标签
     function delede_labelist(label_id){
+        var is_delete = confirm('是否删除常用标签');
         var data = {
             'label_id':label_id
         };
-        $.ajax({
-            url:"/label/delete_labelist",
-            type:"post",
-            data:data,
-            dataType: 'json',
-            success:function(msg){
-                if(msg){
-                    $("#label_list"+msg['0'].del_labelid).parent().remove();
-                    $("#mylabel"+msg['0'].del_labelid).remove();
-                    $("#label_list_all"+msg['0'].del_labelid).parent().remove();
+        if (is_delete == true) {
+            $.ajax({
+                url:"/label/delete_labelist",
+                type:"post",
+                data:data,
+                dataType: 'json',
+                success:function(msg){
+                    if(msg){
+                        $("#label_list"+msg['0'].del_labelid).parent().remove();
+                        $("#mylabel"+msg['0'].del_labelid).remove();
+                        $("#label_list_all"+msg['0'].del_labelid).parent().remove();
+                    }
+                },
+                error:function(msg){
+                    alert(msg);
+                    console.log(msg);
                 }
-            },
-            error:function(msg){
-                alert(msg);
-                console.log(msg);
-            }
-        });
+            });
+        }
     }
     //文件上传七牛云
     function UpladFile(){
@@ -2735,6 +2795,69 @@ $this->params['breadcrumbs'][] = $this->title;
                 console.log(msg);
             }
         });
+    }
+    //批量删除标签
+    function delete_label_all(){
+        var key = $("#w0").yiiGridView("getSelectedRows");
+        key.length == 0? keys = null: keys = key;
+        var data = {
+            'id' : keys
+        }
+        if(!keys){
+            toastr.error('请选择要修改的图片')
+            $('#delete_all_Modal').modal('hide');
+            return false
+        }else{
+            $('#delete_all_Modal').modal('show');
+        }
+        $.ajax({
+            url:"/label/select_label2",
+            type:"post",
+            data:data,
+            dataType: 'json',
+            success:function(msg){
+                if(msg){
+                    var html = "";
+                    for(var num=0;num<msg.length;num++){
+                        html += "<div style='display:-webkit-inline-box;' ><button class='btn btn-default label_style' id='delete_label_list_all"+msg[num].id+"'>"+msg[num].label_name+"</button><span  style='cursor:pointer;display:none' class='label_span_all2' onclick='delete_all_list("+msg[num].id+");'>❌</span></div>";
+                    }
+                    $("#delete_label_list_all").html(html);
+                }
+            },
+            error:function(msg){
+                console.log(msg);
+            }
+        });
+    }
+    //批量删除标签
+    function delete_all_list(label_id){
+        var is_delete = confirm('是否要批量删除标签');
+        if(is_delete){
+            toastr.success('删除中')
+            var key = $("#w0").yiiGridView("getSelectedRows");
+            key.length == 0? keys = null: keys = key;
+            var data = {
+                'label_id' : label_id,
+                'id' : keys
+            }
+            $.ajax({
+                url:"/label/delete_label_all",
+                type:"get",
+                data:data,
+                dataType: 'json',
+                success:function(msg){
+                    if(msg==1){
+                        alert('删除成功');
+                        $("#delete_label_list_all"+label_id).parent().remove();
+                    }else{
+                        alert('删除失败');
+                    }
+                },
+                error:function(msg){
+                    console.log(msg);
+                }
+            });
+        }
     }
     //后台查看图片
     function find_img(img){

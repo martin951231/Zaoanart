@@ -188,4 +188,53 @@ class LabelController extends Controller
         }
     }
 
+    //查询指定id的所有标签
+    public function actionSelect_label2(){
+        $ids = $_POST['id'];
+        $lable_str = '';
+        for($i=0;$i<count($ids);$i++){
+            $res = goods::find()->select('label')->where(['id'=>$ids[$i]])->one();
+            $lable_str .= ','.trim($res['label'],',');
+
+        }
+        $label_arrs = array_filter(explode(',',$lable_str));
+        $label_arr = array_unique($label_arrs);
+        sort($label_arr);
+        for($k=0;$k<count($label_arr);$k++){
+            $res2[] = label::find()->select('id,label_name')->where(['id'=>$label_arr[$k]])->one();
+        }
+        for($q=0;$q<count($res2);$q++){
+            $info[] = [
+                'id' => $res2[$q]['id'],
+                'label_name' => $res2[$q]['label_name'],
+            ];
+        }
+        return json_encode($info);
+    }
+
+    //批量删除标签
+    public function actionDelete_label_all()
+    {
+        $label_id = $_GET['label_id'];
+        $ids = $_GET['id'];
+        $res = $res2 = null;
+        for($i=0;$i<count($ids);$i++){
+            $res = goods::find()->select('label')->where(['id'=>$ids[$i]])->one();
+            $label = array_filter(explode(",",$res['label']));
+            sort($label);
+            $is_exists = in_array($label_id,$label);
+            if($is_exists){
+                $key = array_search($label_id,$label);
+                unset($label[$key]);
+                sort($label);
+                $labels = ','.implode(",",array_unique($label)).',';
+                $res2 += goods::updateAll(['label' => $labels],['id'=>$ids[$i]]);
+            }
+        }
+        if($res2>1){
+            return 1;
+        }else{
+            return 2;
+        }
+    }
 }

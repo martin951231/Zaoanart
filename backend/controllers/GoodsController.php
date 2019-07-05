@@ -334,21 +334,21 @@ class GoodsController extends Controller
             $status_theme_code = $_POST['status_theme_code'];
             $edit_info = $_POST['edit_info'];
             $res1 = 0;$res2 = 0;$res3 = 0;$res4 = 0;$res5 = 0;$res6 = 0;$res7 = 0;$res8 = 0;$res9 = 0;
-            function delete_all($id)
-            {
-                $res = 0;
-                $length = count($id);
-                if($length < 1){
-                    $res = false;
-                    return $res;
-                }else{
-                    $res = Goods::deleteAll(['id'=>$id]);
-                    return $res;
-                }
-            }
+//            function delete_all($id)
+//            {
+//                $res = 0;
+//                $length = count($id);
+//                if($length < 1){
+//                    $res = false;
+//                    return $res;
+//                }else{
+//                    $res = Goods::deleteAll(['id'=>$id]);
+//                    return $res;
+//                }
+//            }
             if($status_edit_code){
                 switch($status_edit_code){
-                    case $status_edit_code == 1: $res1 = delete_all($id);break;
+//                    case $status_edit_code == 1: $res1 = delete_all($id);break;
                     case $status_edit_code == 2: $res2 = Goods::updateAll(['is_appear' => 1], ['id'=>$id]);break;
                     case $status_edit_code == 3: $res3 = Goods::updateAll(['is_appear' => 0], ['id'=>$id]);break;
                     case $status_edit_code == 4: $res4 = Goods::updateAll(['is_recommend' => 1], ['id'=>$id]);break;
@@ -911,6 +911,7 @@ class GoodsController extends Controller
         $label = array_filter($label);
         sort($label);
         $id = $res['id'];
+        $info = [];
         for($i = 0;$i<count($label);$i++){
             $data = label::find()->select('label_name,id')->where(['id'=>$label[$i]])->one();
             $label_name = $data['label_name'];

@@ -162,7 +162,10 @@ return [
                     'extraPatterns' => [
                         'GET getcate' => 'getcate',
                         'GET getcate2' => 'getcate2',
+                        'GET getcate3' => 'getcate3',
                         'GET gettheme' => 'gettheme',
+                        'GET gettheme2' => 'gettheme2',
+                        'GET getallimg' => 'getallimg',
                         'GET getcateimg' => 'getcateimg',
                         'GET getthemeimg' => 'getthemeimg',
                         'GET getsearchimg' => 'getsearchimg',
@@ -185,6 +188,8 @@ return [
                         'GET deleteimg' => 'deleteimg',
                         'GET moveimg' => 'moveimg',
                         'GET copyimg' => 'copyimg',
+                        'GET message' => 'message',
+                        'GET decrypttel' => 'decrypttel',
                         'GET jiashuiyin' => 'jiashuiyin',
                         'GET upmysql' => 'upmysql',
                     ]

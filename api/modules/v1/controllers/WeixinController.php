@@ -16,6 +16,7 @@ use backend\models\keep;
 use backend\models\keepimage;
 use backend\models\BorderMaterial;
 use backend\models\Boxseries;
+use backend\models\Message;
 
 class WeixinController extends ActiveController
 {
@@ -47,12 +48,12 @@ class WeixinController extends ActiveController
     //获取分类
     public function actionGetcate()
     {
-        $res = category::find()->select('id,category_name,face_img')->where(['pid'=>0])->andWhere(['<>','id',999])->all();
+        $res = category::find()->select('id,category_name,face_img_wx')->where(['pid'=>0])->andWhere(['<>','id',999])->all();
         for($i=0;$i<count($res);$i++){
             $info[] = [
                 'id'=> $res[$i]['id'],
                 'category_name'=> $res[$i]['category_name'],
-                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img'],
+                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img_wx'],
             ];
         }
         return $info;
@@ -61,13 +62,34 @@ class WeixinController extends ActiveController
     public function actionGetcate2()
     {
         $id = $_GET['id'];
-        $res = category::find()->select('id,category_name,face_img')->where(['pid'=>$id])->andWhere(['<>','id',999])->all();
+        $cate_name = category::find()->select('id,category_name')->where(['id'=>$id])->one();
+        $res = category::find()->select('id,category_name,face_img_wx')->where(['pid'=>$id])->andWhere(['<>','id',999])->all();
         if($res){
             for($i=0;$i<count($res);$i++){
                 $info[] = [
                     'id'=> $res[$i]['id'],
                     'category_name'=> $res[$i]['category_name'],
-                    'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img'],
+                    'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img_wx'],
+                ];
+            }
+            $infos['data'] = $info;
+            $infos['cate_name'] = $cate_name['category_name'];
+            return $infos;
+        }else{
+            $infos['data'] = null;
+            $infos['cate_name'] = $cate_name['category_name'];
+            return $infos;
+        }
+    }
+    //获取分类3
+    public function actionGetcate3()
+    {
+        $res = category::find()->select('id,category_name')->where(['<>','id',999])->orderBy('sort')->all();
+        if($res){
+            for($i=0;$i<count($res);$i++){
+                $info[] = [
+                    'id'=> $res[$i]['id'],
+                    'category_name'=> $res[$i]['category_name'],
                 ];
             }
             return $info;
@@ -76,17 +98,390 @@ class WeixinController extends ActiveController
         }
     }
     //获取主题
-    public function actionGettheme()
+    public function actionGettheme2()
     {
-        $res = theme::find()->select('id,theme_name,theme_img')->where(['pid'=>0])->andWhere(['<>','id',999])->all();
+        $res = theme::find()->select('id,theme_name')->where(['pid'=>0])->andWhere(['<>','id',999])->all();
         for($i=0;$i<count($res);$i++){
             $info[] = [
                 'id'=> $res[$i]['id'],
                 'theme_name'=> $res[$i]['theme_name'],
-                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['theme_img'],
+//                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['theme_img_wx'],
             ];
         }
         return $info;
+    }
+    //获取主题
+    public function actionGettheme()
+    {
+        $res = theme::find()->select('id,theme_name,theme_img_wx')->where(['pid'=>0])->andWhere(['<>','id',999])->all();
+        for($i=0;$i<count($res);$i++){
+            $info[] = [
+                'id'=> $res[$i]['id'],
+                'theme_name'=> $res[$i]['theme_name'],
+                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['theme_img_wx'],
+            ];
+        }
+        return $info;
+    }
+    //获取图片
+    public function actionGetallimg()
+    {
+        $cate_id = $_GET['cate_id'];
+        $theme_id = $_GET['theme_id'];
+        $color_id = $_GET['color_id'];
+        $search = $_GET['search'];
+        $pageSize = 20;
+        $start = $_GET['start'];
+        $res = [];
+        $cate_name = $theme_name = $color = '';
+        if($cate_id){
+            $cate_name = category::find()->select('category_name')->where(['id'=>$cate_id])->one();
+            $cate_name = $cate_name['category_name'];
+        }
+        if($theme_id){
+            $theme_name = theme::find()->select('theme_name')->where(['id'=>$theme_id])->one();
+            $theme_name = $theme_name['theme_name'];
+        }
+        if(!$search){
+            $cate_res = null;
+            $theme_res = null;
+        }else{
+            $res1 = category::find()->select('id')->where(['like','category_name',$search])->all();
+            $res2 = theme::find()->select('id')->where(['like','theme_name',$search])->all();
+            $cate_res = null;
+            $theme_res = null;
+            if($res1){
+                for($y=0;$y<count($res1);$y++){
+                    $cate_res .= ' or (`category`= '.$res1[$y]['id'].')';
+                }
+                $cate_res = '('.$cate_res.')';
+            }
+            if($res2){
+                for($z=0;$z<count($res2);$z++){
+                    $theme_res .= ' or (`theme`= '.$res2[$z]['id'].')';
+                }
+                $theme_res = '('.$theme_res.')';
+            }
+//            for($y=0;$y<count($res1);$y++){
+//                $cate_res[] = $res1[$y]['id'];
+//            }
+//            for($z=0;$z<count($res2);$z++){
+//                $theme_res[] = $res2[$z]['id'];
+//            }
+        }
+        if($color_id){
+            switch ($color_id){
+                case $color_id == 1 : $color = '红色';break;
+                case $color_id == 2 : $color = '橙色';break;
+                case $color_id == 3 : $color = '黄色';break;
+                case $color_id == 4 : $color = '绿色';break;
+                case $color_id == 5 : $color = '青色';break;
+                case $color_id == 6 : $color = '蓝色';break;
+                case $color_id == 7 : $color = '紫色';break;
+                case $color_id == 8 : $color = '粉色';break;
+                case $color_id == 9 : $color = '白色';break;
+                case $color_id == 10 : $color = '黑色';break;
+            }
+        }
+        $color1 = null;
+        if(!$search){
+            $color1 = null;
+        }else{
+            switch ($search){
+                case $search == '红色' : $color1 = 1;break;
+                case $search == '橙色' : $color1 = 2;break;
+                case $search == '黄色' : $color1 = 3;break;
+                case $search == '绿色' : $color1 = 4;break;
+                case $search == '青色' : $color1 = 5;break;
+                case $search == '蓝色' : $color1 = 6;break;
+                case $search == '紫色' : $color1 = 7;break;
+                case $search == '粉色' : $color1 = 8;break;
+                case $search == '白色' : $color1 = 9;break;
+                case $search == '黑色' : $color1 = 10;break;
+                case $search == '其他' : $color1 = 11;break;
+                case $search == '红' : $color1 = 1;break;
+                case $search == '橙' : $color1 = 2;break;
+                case $search == '黄' : $color1 = 3;break;
+                case $search == '绿' : $color1 = 4;break;
+                case $search == '青' : $color1 = 5;break;
+                case $search == '蓝' : $color1 = 6;break;
+                case $search == '紫' : $color1 = 7;break;
+                case $search == '粉' : $color1 = 8;break;
+                case $search == '白' : $color1 = 9;break;
+                case $search == '黑' : $color1 = 10;break;
+            }
+        }
+        if($search != 'null' && $search){
+            $search_id = "(`id` LIKE '%".$search."%')";
+            $search_name = " or (`name` LIKE '%".$search."%')";
+            $search_category = $cate_res;
+            $search_theme = $theme_res;
+            $search_image = " or (`image` LIKE '%".$search."%')";
+            $search_author = " or (`author` LIKE '%".$search."%')";
+            $search_price = " or (`price` LIKE '%".$search."%')";
+            $search_content = " or (`content` LIKE '%".$search."%')";
+            if($color1){
+                $search_color = " or (`color` = ".$color1.")";
+            }else{
+                $search_color = null;
+            }
+            $search_condition = ' AND ('.$search_id.$search_name.$search_category.$search_theme.$search_image.$search_author.$search_price.$search_content.$search_color.')';
+        }else{
+            $search_condition = null;
+        }
+        $condition_str = $cate_name.','.$theme_name.','.$color.','.$search;
+        $explode = array_filter(explode(',',$condition_str));
+        sort($explode);
+        if($cate_id == 0){
+            if($theme_id == 0){
+                if($color_id == 0){
+                    //全空
+                    $sql = Goods::find()
+                        ->select('id,image,name,img_height')
+                        ->where(['is_appear' => 1])
+                        ->createCommand()
+                        ->getRawSql();
+                    $sql_str = $sql.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                }else{
+                    //颜色不空,其他空
+                    $sql = Goods::find()
+                        ->select('id,image,name,img_height')
+                        ->where(['color'=>$color_id])
+                        ->createCommand()
+                        ->getRawSql();
+                    $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                }
+            }else{
+                if($color_id == 0){
+                    //颜色和cate空,theme不空
+                    $sql = Goods::find()
+                        ->select('id,image,name,img_height')
+                        ->where(['theme'=>$theme_id])
+                        ->createCommand()
+                        ->getRawSql();
+                    $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                }else{
+                    //颜色和theme不空,cate空
+                    $sql = Goods::find()
+                        ->select('id,image,name,img_height')
+                        ->where(['theme'=>$theme_id,'color'=>$color_id])
+                        ->createCommand()
+                        ->getRawSql();
+                    $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                }
+            }
+        }else{
+            if($theme_id == 0){
+                if($color_id == 0){
+                    //颜色和theme空,cate不空
+                    $cate_pid = category::find()
+                        ->select('pid')
+                        ->where(['id'=>$cate_id])
+                        ->one();
+                    if($cate_pid['pid']==0){
+                        $id_arr = category::find()
+                            ->select('id')
+                            ->where(['pid'=>$cate_id])
+                            ->all();
+                        if(empty($id_arr)){
+                            $sql = Goods::find()
+                                ->select('id,image,name,img_height')
+                                ->where(['category'=>$cate_id])
+                                ->createCommand()
+                                ->getRawSql();
+                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }else{
+                            $cate_id2[] = [
+                                'id'=>(int)$cate_id
+                            ];
+                            $result = array_merge($cate_id2,$id_arr);
+                            $condition = '';
+                            for($i = 0;$i<count($result);$i++){
+                                $condition .= ' or (`category` = '.$result[$i]['id'].')';
+                                $sql = Goods::find()
+                                    ->select('id,image,name,img_height')
+                                    ->andWhere(['is_appear'=>1])
+                                    ->createCommand()
+                                    ->getRawSql();
+                            }
+                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }
+                    }else{
+                        $sql = Goods::find()
+                            ->select('id,image,name,img_height')
+                            ->where(['category'=>$cate_id])
+                            ->createCommand()
+                            ->getRawSql();
+                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                    }
+                }else{
+                    //颜色和cate不空,theme空
+                    $cate_pid = category::find()
+                        ->select('pid')
+                        ->where(['id'=>$cate_id])
+                        ->one();
+                    if($cate_pid['pid']==0){
+                        $id_arr = category::find()
+                            ->select('id')
+                            ->where(['pid'=>$cate_id])
+                            ->all();
+                        if(empty($id_arr)){
+                            $sql = Goods::find()
+                                ->select('id,image,name,img_height')
+                                ->where(['category'=>$cate_id,'color' => $color_id])
+                                ->createCommand()
+                                ->getRawSql();
+                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }else{
+                            $cate_id2[] = [
+                                'id'=>(int)$cate_id
+                            ];
+                            $result = array_merge($cate_id2,$id_arr);
+                            $condition = '';
+                            for($i = 0;$i<count($result);$i++){
+                                $condition .= ' or (`category` = '.$result[$i]['id'].')';
+                                $sql = Goods::find()
+                                    ->select('id,image,name,img_height')
+                                    ->where(['color' => $color_id])
+                                    ->createCommand()
+                                    ->getRawSql();
+                            }
+                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }
+                    }else {
+                        $sql = Goods::find()
+                            ->select('id,image,name,img_height')
+                            ->where(['category' => $cate_id, 'color' => $color_id])
+                            ->createCommand()
+                            ->getRawSql();
+                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                    }
+                }
+            }else{
+                if($color_id == 0){
+                    //颜色空,theme和cate不空
+                    $cate_pid = category::find()
+                        ->select('pid')
+                        ->where(['id'=>$cate_id])
+                        ->one();
+                    if($cate_pid['pid']==0){
+                        $id_arr = category::find()
+                            ->select('id')
+                            ->where(['pid'=>$cate_id])
+                            ->all();
+                        if(empty($id_arr)){
+                            $sql = Goods::find()
+                                ->select('id,image,name,img_height')
+                                ->where(['category'=>$cate_id,'theme' => $theme_id])
+                                ->createCommand()
+                                ->getRawSql();
+                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }else{
+                            $cate_id2[] = [
+                                'id'=>(int)$cate_id
+                            ];
+                            $result = array_merge($cate_id2,$id_arr);
+                            $condition = '';
+                            for($i = 0;$i<count($result);$i++){
+                                $condition .= ' or (`category` = '.$result[$i]['id'].')';
+                                $sql = Goods::find()
+                                    ->select('id,image,name,img_height')
+                                    ->where(['theme' => $theme_id])
+                                    ->createCommand()
+                                    ->getRawSql();
+                            }
+                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }
+                    }else{
+                        $sql = Goods::find()
+                            ->select('id,image,name,img_height')
+                            ->where(['category' => $cate_id, 'theme' => $theme_id])
+                            ->createCommand()
+                            ->getRawSql();
+                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                    }
+                }else{
+                    //全不空
+                    $cate_pid = category::find()
+                        ->select('pid')
+                        ->where(['id'=>$cate_id])
+                        ->one();
+                    if($cate_pid['pid']==0){
+                        $id_arr = category::find()
+                            ->select('id')
+                            ->where(['pid'=>$cate_id])
+                            ->all();
+                        if(empty($id_arr)){
+                            $sql = Goods::find()
+                                ->select('id,image,name,img_height')
+                                ->where(['category'=>$cate_id,'theme' => $theme_id,'color' => $color_id])
+                                ->createCommand()
+                                ->getRawSql();
+                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }else{
+                            $cate_id2[] = [
+                                'id'=>(int)$cate_id
+                            ];
+                            $result = array_merge($cate_id2,$id_arr);
+                            $condition = '';
+                            for($i = 0;$i<count($result);$i++){
+                                $condition .= ' or (`category` = '.$result[$i]['id'].')';
+                                $sql = Goods::find()
+                                    ->select('id,image,name,img_height')
+                                    ->where(['theme' => $theme_id,'color' => $color_id])
+                                    ->createCommand()
+                                    ->getRawSql();
+                            }
+                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                        }
+                    }else {
+                        $sql = Goods::find()
+                            ->select('id,image,name,img_height')
+                            ->where(['category' => $cate_id, 'theme' => $theme_id, 'color' => $color_id])
+                            ->createCommand()
+                            ->getRawSql();
+                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $res = Yii::$app->db->createCommand($sql_str)->queryAll();
+                    }
+                }
+            }
+        }
+        if($res){
+            for($i=0;$i<count($res);$i++){
+                $info['image'][] = [
+                    'id'=> $res[$i]['id'],
+                    'cate_id'=>$cate_id,
+                    'name'=> $res[$i]['name'],
+                    'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'],
+                    'img_height'=> intval($res[$i]['img_height']),
+//                    'img_height'=> $imgsize[1],
+                ];
+            }
+            $info['start'] = $start+$pageSize;
+//            $condition_str = $cate_name.''.$theme_name.''.$color;
+            $infos['condition'] = implode(',',$explode);
+            $infos['data'] = $info;
+            return $infos;
+        }else{
+            $infos['condition'] = implode(',',$explode);
+            $infos['data'] = false;
+            return $infos;
+        }
     }
     //获取分类图片
     public function actionGetcateimg()
@@ -123,16 +518,15 @@ class WeixinController extends ActiveController
             $sql_str = $sql.' AND ('.substr($condition,3).') AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
         }
-        $height = 0;
         for($i=0;$i<count($res);$i++){
-            $imgsize = getimagesize('http://qiniu.zaoanart.com/'.$res[$i]['image']);
+//            $imgsize = getimagesize('http://qiniu.zaoanart.com/'.$res[$i]['image']);
             $info['image'][] = [
-                'id'=> $res[$i]['id'],
+                'id'=> intval($res[$i]['id']),
                 'cate_id'=>$cate_id,
                 'name'=> $res[$i]['name'],
                 'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'],
-//                'imgheight'=> $res[$i]['img_height'],
-                'img_height'=> $imgsize[1],
+                'img_height'=> intval($res[$i]['img_height']),
+//                'img_height'=> $imgsize[1],
             ];
         }
         $info['start'] = $start+$pageSize;
@@ -144,6 +538,7 @@ class WeixinController extends ActiveController
         $theme_id = $_GET['id'];
         $pageSize = 20;
         $start = $_GET['start'];
+        $theme_name = Theme::find()->select('theme_name')->where(['id'=>$theme_id])->one();
         $res = Goods::find()
             ->select('id,image,name,img_height')
             ->where(['theme'=>$theme_id])
@@ -165,7 +560,9 @@ class WeixinController extends ActiveController
             ];
         }
         $info['start'] = $start+$pageSize;
-        return $info;
+        $infos['data'] = $info;
+        $infos['theme_name'] = $theme_name['theme_name'];
+        return $infos;
     }
     //获取搜索图片
     public function actionGetsearchimg()
@@ -278,7 +675,9 @@ class WeixinController extends ActiveController
                 ];
             }
             $res4['start'] = $start+$pageSize;
-            return $res4;
+            $infos['data'] = $res4;
+            $infos['search'] = $param;
+            return $infos;
         }
     }
     //获取图片详情
@@ -403,7 +802,7 @@ class WeixinController extends ActiveController
         $keep = keep::find()->select('id,keep_name')->where(['status'=>1])->all();
         if($keep){
             for($i = 0; $i<count($keep);$i++){
-                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(3)->all();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
                 for ($k = 0; $k<count($res2[$i]);$k++){
                     $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
                     if($res2[$i][$k]['imgid']){
@@ -568,7 +967,6 @@ class WeixinController extends ActiveController
         //复制右框
         imagecopyresized($new_img,$left_img,$box_img_width-$face_widths,0,0,0,$face_widths,$box_img_height,$face_widths,$box_img_height);
 //        imagecolortransparent($new_img,65280);
-        imagepng($new_img);die;
         imagepng($new_img,$path.'bgimg.png');
         $img_info = filesize($path.'bgimg.png');
         $fp = fopen($path.'bgimg.png', "r");
@@ -658,7 +1056,7 @@ class WeixinController extends ActiveController
         $res = [];
         if($keep){
             for($i = 0; $i<count($keep);$i++){
-                $res2 = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(3)->all();
+                $res2 = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->all();
                 if(!$res2){
                     $res[$i][] = [
                         'keep_id' => $keep[$i]['id'],
@@ -691,7 +1089,7 @@ class WeixinController extends ActiveController
         $str = strpos($token, '$ZaoAn.u');
         $uid = intval(substr($token,0,$str));
         $keep_name = $_GET['keep_name'];
-        $res = keep::find()->select('id')->where(['keep_name'=>$keep_name])->all();
+        $res = keep::find()->select('id')->where(['keep_name'=>$keep_name])->andWhere(['uid'=>$uid])->all();
         if($res){
             return 1;//收藏夹名字重复
         }
@@ -855,6 +1253,34 @@ class WeixinController extends ActiveController
         }
     }
 
+    //提交建议
+    public function actionMessage()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $content = $_GET['content'];
+        $data = date("Y-m-d");
+        $is_overflow = Message::find()->select('id')->where(['created_at2'=>$data])->all();
+        if(count($is_overflow) >= 10){
+            return 1;//当日留言超过10条
+        }else{
+            $res = Yii::$app->db->createCommand()
+                ->insert('tsy_message',[
+                    'uid' => $uid,
+                    'content' => $content,
+                    'created_at' => date("Y-m-d H:i:s"),
+                    'created_at2' => $data
+                ])
+                ->execute();
+            if($res){
+                return 0;//留言成功
+            }else{
+                return 2;//留言失败
+            }
+        }
+    }
+
     //获取微信手机号
     public function actionGetwxphone()
     {
@@ -867,6 +1293,55 @@ class WeixinController extends ActiveController
         return $jsonObj;
     }
 
+    //解密手机号并登录
+    public function actionDecrypttel()
+    {
+        $aesKey = base64_decode($_GET['session_key']);
+        $aesIV = base64_decode($_GET['ivdata']);
+        $aesCipher = base64_decode($_GET['encrypdata']);
+        $result = openssl_decrypt( $aesCipher, "AES-128-CBC", $aesKey, 1, $aesIV);
+        $dataObj=json_decode($result);
+        if($dataObj == null){
+            return 1;//解密失败
+        }
+        if( $dataObj->watermark->appid != 'wxa0a3e0beee9f0e98')
+        {
+            return 1;//解密失败
+        }
+        $tel = $dataObj->phoneNumber;
+        $uid = account::find()->select('id,is_deleted')->where(['phone'=>$tel])->one();
+        if(!$uid){
+            $result = Yii::$app->db->createCommand()
+                ->insert('tsy_account',[
+                    'username'=>$tel,
+                    'phone'=>$tel,
+                    'password'=>md5(123456)
+                ])
+                ->execute();
+            if($result){
+                //登录
+                $name = 'ZaoanArt';
+                $password = md5(123456);
+                $data = date('Y.m.d-H:i:s');
+                $rand = rand(1,9999);
+                $str = md5($name.$data.$rand);
+                $token = $uid['id'].'$ZaoAn.u'.password_hash($str.$password,PASSWORD_DEFAULT);
+                return $token;
+            }
+        }else{
+            if($uid['is_deleted'] == 1){
+                return 2;//该手机号被禁止登录或者被删除
+            }else{
+                //登录
+                $name = 'ZaoanArt';
+                $data = date('Y.m.d-H:i:s');
+                $rand = rand(1,9999);
+                $str = md5($name.$data.$rand);
+                $token = $uid['id'].'$ZaoAn.u'.password_hash($str,PASSWORD_DEFAULT);
+                return $token;
+            }
+        }
+    }
 
     //生成水印参数
     public function actionJiashuiyin()
