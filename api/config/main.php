@@ -54,7 +54,19 @@ return [
                     ],
                     'pluralize'  => false,
                     'extraPatterns' => [
-                        'GET qwe' => 'qwe', // 以GET请求 http://域名/api/v1/site/qwe.html
+                        'GET qwe' => 'qwe',
+                        'GET record_access' => 'record_access',
+                        'GET up_pv_count2' => 'up_pv_count2',
+                        'GET up_pv_count3' => 'up_pv_count3',
+                        'GET up_pv_count4' => 'up_pv_count4',
+                        'GET up_pv_count5' => 'up_pv_count5',
+                        'GET up_pv_count6' => 'up_pv_count6',
+                        'GET up_pv_count7' => 'up_pv_count7',
+                        'GET up_pv_count8' => 'up_pv_count8',
+                        'GET up_pv_count9' => 'up_pv_count9',
+                        'GET up_pv_count10' => 'up_pv_count10',
+                        'GET up_pv_count11' => 'up_pv_count11',
+                        'GET up_pv_count12' => 'up_pv_count12',
                     ]
                 ],
                 [
@@ -79,7 +91,9 @@ return [
                         'GET findmayimgall' => 'findmayimgall',
                         'GET up_label' => 'up_label',
                         'POST to_shopcar' => 'to_shopcar',
+                        'POST record_decoration' => 'record_decoration',
                         'GET getloginimg' => 'getloginimg',
+                        'GET getaccessip' => 'getaccessip',
                     ]
                 ],
                 [
@@ -191,6 +205,7 @@ return [
                         'GET message' => 'message',
                         'GET decrypttel' => 'decrypttel',
                         'GET jiashuiyin' => 'jiashuiyin',
+                        'GET record_access_wechat' => 'record_access_wechat',
                         'GET upmysql' => 'upmysql',
                     ]
                 ],
@@ -226,7 +241,8 @@ return [
                         'GET delete_img'=>'delete_img',
                         'GET move_img_all'=>'move_img_all',
                         'GET copy_img_all'=>'copy_img_all',
-                        'GET delete_img_all'=>'delete_img_all'
+                        'GET delete_img_all'=>'delete_img_all',
+                        'GET record_access' => 'record_access',
                     ]
                 ],
 

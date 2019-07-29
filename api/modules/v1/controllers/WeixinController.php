@@ -9,6 +9,7 @@ use yii\data\ActiveDataProvider;
 use Qiniu\Auth;
 use backend\models\goods;
 use backend\models\account;
+use backend\models\accountChannel;
 use backend\models\category;
 use backend\models\theme;
 use backend\models\label;
@@ -45,19 +46,25 @@ class WeixinController extends ActiveController
             throw new NotFoundHttpException('The requested page does not exist.');
         }
     }
+
     //获取分类
     public function actionGetcate()
     {
-        $res = category::find()->select('id,category_name,face_img_wx')->where(['pid'=>0])->andWhere(['<>','id',999])->all();
+        $res = category::find()
+            ->select('id,category_name,face_img_wx')
+            ->where(['pid'=>0])
+            ->andWhere(['<>','id',999])
+            ->all();
         for($i=0;$i<count($res);$i++){
             $info[] = [
                 'id'=> $res[$i]['id'],
                 'category_name'=> $res[$i]['category_name'],
-                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img_wx'],
+                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img_wx'].'?imageView2/2/w/500',
             ];
         }
         return $info;
     }
+
     //获取分类2
     public function actionGetcate2()
     {
@@ -69,7 +76,7 @@ class WeixinController extends ActiveController
                 $info[] = [
                     'id'=> $res[$i]['id'],
                     'category_name'=> $res[$i]['category_name'],
-                    'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img_wx'],
+                    'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['face_img_wx'].'?imageView2/2/w/500',
                 ];
             }
             $infos['data'] = $info;
@@ -81,6 +88,7 @@ class WeixinController extends ActiveController
             return $infos;
         }
     }
+
     //获取分类3
     public function actionGetcate3()
     {
@@ -97,6 +105,7 @@ class WeixinController extends ActiveController
             return false;
         }
     }
+
     //获取主题
     public function actionGettheme2()
     {
@@ -110,6 +119,7 @@ class WeixinController extends ActiveController
         }
         return $info;
     }
+
     //获取主题
     public function actionGettheme()
     {
@@ -118,11 +128,12 @@ class WeixinController extends ActiveController
             $info[] = [
                 'id'=> $res[$i]['id'],
                 'theme_name'=> $res[$i]['theme_name'],
-                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['theme_img_wx'],
+                'face_img'=> 'http://qiniu.zaoanart.com/'.$res[$i]['theme_img_wx'].'?imageView2/2/w/500',
             ];
         }
         return $info;
     }
+
     //获取图片
     public function actionGetallimg()
     {
@@ -130,17 +141,64 @@ class WeixinController extends ActiveController
         $theme_id = $_GET['theme_id'];
         $color_id = $_GET['color_id'];
         $search = $_GET['search'];
+        $contrast = $_GET['contrast'];
         $pageSize = 20;
         $start = $_GET['start'];
         $res = [];
         $cate_name = $theme_name = $color = '';
+        if(!$search || $search == 'null'){
+            $search = null;
+        }
+        if(!$contrast || $contrast == 'null'){
+            $contrast = 0;
+        }
+//        switch($contrast){
+//            case 1:$contrast = '<';break;
+//            case 2:$contrast = '>';break;
+//            case 3:$contrast = '=';break;
+//            case 0:$contrast = 'or';break;
+//        }
+        switch($contrast){
+            case 1:$contrast = ' AND ((`img_width` >= (`img_height`*1.2)) or (`img_height` <= (`img_width`*0.8)))';break;//横图
+            case 2:$contrast = ' AND ((`img_height` >= (`img_width`*1.2)) or (`img_width` <= (`img_height`*0.8)))';break;//竖图
+            case 3:$contrast = ' AND ((`img_width` <= (`img_height`*1.2) AND `img_width` >= (`img_height`*0.8)) or (`img_height` <= (`img_width`*1.2) AND `img_height` >= (`img_width`*0.8)))';break;//方图
+            case 0:$contrast = ' AND (`img_height` or `img_width`)';break;
+        }
+        if($_GET['contrast'] == 1){
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`=1 ';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
+        }else if($_GET['contrast'] == 2){
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`=2';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
+        }else if($_GET['contrast'] == 3){
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`=3 ';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
+        }else{
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`=4 ';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
+        }
+//        $sql1 = 'SELECT `id`  FROM `tsy_goods` WHERE `is_appear`=1 AND ((`img_width` >= (`img_height`*1.2)) AND (`img_height` <= (`img_width`*0.8))) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC';
+//        $sql2 = 'SELECT `id`  FROM `tsy_goods` WHERE `is_appear`=1 AND ((`img_height` >= (`img_width`*1.2)) AND (`img_width` <= (`img_height`*0.8))) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC';
+//        $sql3 = 'SELECT `id`  FROM `tsy_goods` WHERE `is_appear`=1 AND ((`img_width` <= (`img_height`*1.2) AND `img_width` >= (`img_height`*0.8)) or (`img_height` <= (`img_width`*1.2) AND `img_height` >= (`img_width`*0.8))) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC';
+//        $res1 = Yii::$app->db->createCommand($sql1)->queryAll();
+//        $res2 = Yii::$app->db->createCommand($sql2)->queryAll();
+//        $res3 = Yii::$app->db->createCommand($sql3)->queryAll();
+//        $res4 = array_merge($res1,$res2);
+//        $res5 = array_merge($res4,$res3);
+//        $res6 = array_unique($res5,SORT_REGULAR);
+//        var_dump($res6);die;
+
         if($cate_id){
             $cate_name = category::find()->select('category_name')->where(['id'=>$cate_id])->one();
             $cate_name = $cate_name['category_name'];
+            $up_cate_search_sum = 'UPDATE `tsy_category` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$cate_id.' ';
+            Yii::$app->db->createCommand($up_cate_search_sum)->execute();
         }
         if($theme_id){
             $theme_name = theme::find()->select('theme_name')->where(['id'=>$theme_id])->one();
             $theme_name = $theme_name['theme_name'];
+            $up_theme_search_sum = 'UPDATE `tsy_theme` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$theme_id.' ';
+            Yii::$app->db->createCommand($up_theme_search_sum)->execute();
         }
         if(!$search){
             $cate_res = null;
@@ -148,19 +206,29 @@ class WeixinController extends ActiveController
         }else{
             $res1 = category::find()->select('id')->where(['like','category_name',$search])->all();
             $res2 = theme::find()->select('id')->where(['like','theme_name',$search])->all();
+            $res3= label::find()->select('id')->where(['like','label_name',$search])->all();
             $cate_res = null;
             $theme_res = null;
+            $label_res = null;
             if($res1){
                 for($y=0;$y<count($res1);$y++){
                     $cate_res .= ' or (`category`= '.$res1[$y]['id'].')';
                 }
-                $cate_res = '('.$cate_res.')';
+                $cate_res = ' or ('.ltrim($cate_res,' or').')';
             }
             if($res2){
                 for($z=0;$z<count($res2);$z++){
                     $theme_res .= ' or (`theme`= '.$res2[$z]['id'].')';
                 }
-                $theme_res = '('.$theme_res.')';
+                $theme_res = ' or ('.ltrim($theme_res,' or').')';
+            }
+            if($res3){
+                for($x=0;$x<count($res3);$x++){
+                    $up_label_search_sum = 'UPDATE `tsy_label` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$res3[$x]['id'].' ';
+                    Yii::$app->db->createCommand($up_label_search_sum)->execute();
+                    $label_res .= " or (`label` like '%,".$res3[$x]['id'].",%')";
+                }
+                $label_res = ''.$label_res.'';
             }
 //            for($y=0;$y<count($res1);$y++){
 //                $cate_res[] = $res1[$y]['id'];
@@ -170,6 +238,8 @@ class WeixinController extends ActiveController
 //            }
         }
         if($color_id){
+            $up_color_search_sum = 'UPDATE `tsy_color` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$color_id.' ';
+            Yii::$app->db->createCommand($up_color_search_sum)->execute();
             switch ($color_id){
                 case $color_id == 1 : $color = '红色';break;
                 case $color_id == 2 : $color = '橙色';break;
@@ -181,6 +251,7 @@ class WeixinController extends ActiveController
                 case $color_id == 8 : $color = '粉色';break;
                 case $color_id == 9 : $color = '白色';break;
                 case $color_id == 10 : $color = '黑色';break;
+                case $color_id == 11 : $color = '灰色';break;
             }
         }
         $color1 = null;
@@ -198,7 +269,7 @@ class WeixinController extends ActiveController
                 case $search == '粉色' : $color1 = 8;break;
                 case $search == '白色' : $color1 = 9;break;
                 case $search == '黑色' : $color1 = 10;break;
-                case $search == '其他' : $color1 = 11;break;
+                case $search == '灰色' : $color1 = 11;break;
                 case $search == '红' : $color1 = 1;break;
                 case $search == '橙' : $color1 = 2;break;
                 case $search == '黄' : $color1 = 3;break;
@@ -209,6 +280,7 @@ class WeixinController extends ActiveController
                 case $search == '粉' : $color1 = 8;break;
                 case $search == '白' : $color1 = 9;break;
                 case $search == '黑' : $color1 = 10;break;
+                case $search == '灰' : $color1 = 11;break;
             }
         }
         if($search != 'null' && $search){
@@ -225,7 +297,7 @@ class WeixinController extends ActiveController
             }else{
                 $search_color = null;
             }
-            $search_condition = ' AND ('.$search_id.$search_name.$search_category.$search_theme.$search_image.$search_author.$search_price.$search_content.$search_color.')';
+            $search_condition = ' AND ('.$search_id.$search_name.$search_category.$search_theme.$search_image.$search_author.$search_price.$search_content.$search_color.$label_res.')';
         }else{
             $search_condition = null;
         }
@@ -237,11 +309,12 @@ class WeixinController extends ActiveController
                 if($color_id == 0){
                     //全空
                     $sql = Goods::find()
-                        ->select('id,image,name,img_height')
+                        ->select('id,image,name,img_width,img_height')
                         ->where(['is_appear' => 1])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+//                    $sql_str = $sql.' AND (`img_height` '.$contrast.' `img_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                 }else{
                     //颜色不空,其他空
@@ -250,7 +323,7 @@ class WeixinController extends ActiveController
                         ->where(['color'=>$color_id])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                 }
             }else{
@@ -261,7 +334,7 @@ class WeixinController extends ActiveController
                         ->where(['theme'=>$theme_id])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                 }else{
                     //颜色和theme不空,cate空
@@ -270,7 +343,7 @@ class WeixinController extends ActiveController
                         ->where(['theme'=>$theme_id,'color'=>$color_id])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                 }
             }
@@ -293,7 +366,7 @@ class WeixinController extends ActiveController
                                 ->where(['category'=>$cate_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }else{
                             $cate_id2[] = [
@@ -309,7 +382,7 @@ class WeixinController extends ActiveController
                                     ->createCommand()
                                     ->getRawSql();
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else{
@@ -318,7 +391,7 @@ class WeixinController extends ActiveController
                             ->where(['category'=>$cate_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                     }
                 }else{
@@ -338,7 +411,7 @@ class WeixinController extends ActiveController
                                 ->where(['category'=>$cate_id,'color' => $color_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }else{
                             $cate_id2[] = [
@@ -354,7 +427,7 @@ class WeixinController extends ActiveController
                                     ->createCommand()
                                     ->getRawSql();
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else {
@@ -363,7 +436,7 @@ class WeixinController extends ActiveController
                             ->where(['category' => $cate_id, 'color' => $color_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                     }
                 }
@@ -385,7 +458,7 @@ class WeixinController extends ActiveController
                                 ->where(['category'=>$cate_id,'theme' => $theme_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }else{
                             $cate_id2[] = [
@@ -401,7 +474,7 @@ class WeixinController extends ActiveController
                                     ->createCommand()
                                     ->getRawSql();
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else{
@@ -410,7 +483,7 @@ class WeixinController extends ActiveController
                             ->where(['category' => $cate_id, 'theme' => $theme_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                     }
                 }else{
@@ -430,7 +503,7 @@ class WeixinController extends ActiveController
                                 ->where(['category'=>$cate_id,'theme' => $theme_id,'color' => $color_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }else{
                             $cate_id2[] = [
@@ -446,7 +519,7 @@ class WeixinController extends ActiveController
                                     ->createCommand()
                                     ->getRawSql();
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.' AND ('.substr($condition,3).')'.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else {
@@ -455,7 +528,7 @@ class WeixinController extends ActiveController
                             ->where(['category' => $cate_id, 'theme' => $theme_id, 'color' => $color_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND (`is_appear`=1) AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                     }
                 }
@@ -467,7 +540,7 @@ class WeixinController extends ActiveController
                     'id'=> $res[$i]['id'],
                     'cate_id'=>$cate_id,
                     'name'=> $res[$i]['name'],
-                    'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'],
+                    'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                     'img_height'=> intval($res[$i]['img_height']),
 //                    'img_height'=> $imgsize[1],
                 ];
@@ -483,6 +556,7 @@ class WeixinController extends ActiveController
             return $infos;
         }
     }
+
     //获取分类图片
     public function actionGetcateimg()
     {
@@ -490,6 +564,8 @@ class WeixinController extends ActiveController
         $pageSize = 20;
         $start = $_GET['start'];
         $id_arr = category::find()->select('id')->where(['pid'=>$cate_id])->all();
+        $up_cate_search_sum = 'UPDATE `tsy_category` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$cate_id.' ';
+        Yii::$app->db->createCommand($up_cate_search_sum)->execute();
         if(empty($id_arr)){
             $res = Goods::find()
                 ->select('id,image,name,img_height')
@@ -524,7 +600,7 @@ class WeixinController extends ActiveController
                 'id'=> intval($res[$i]['id']),
                 'cate_id'=>$cate_id,
                 'name'=> $res[$i]['name'],
-                'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'],
+                'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                 'img_height'=> intval($res[$i]['img_height']),
 //                'img_height'=> $imgsize[1],
             ];
@@ -532,6 +608,7 @@ class WeixinController extends ActiveController
         $info['start'] = $start+$pageSize;
         return $info;
     }
+
     //获取主题图片
     public function actionGetthemeimg()
     {
@@ -539,22 +616,27 @@ class WeixinController extends ActiveController
         $pageSize = 20;
         $start = $_GET['start'];
         $theme_name = Theme::find()->select('theme_name')->where(['id'=>$theme_id])->one();
+        $up_theme_search_sum = 'UPDATE `tsy_theme` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$theme_id.' ';
+        Yii::$app->db->createCommand($up_theme_search_sum)->execute();
         $res = Goods::find()
             ->select('id,image,name,img_height')
             ->where(['theme'=>$theme_id])
             ->andWhere(['or',['<>','category',999],['<>','theme',999]])
             ->andWhere(['is_appear'=>1])
-//            ->orderBy(['id'=>SORT_DESC])
+//            ->indexBy('category')
+            ->orderBy(['id'=>SORT_DESC])
             ->limit($pageSize)
             ->offset($start)
             ->all();
+//            ->createCommand()
+//            ->getRawSql();
         for($i=0;$i<count($res);$i++){
 //            $imgsize = getimagesize('http://qiniu.zaoanart.com/'.$res[$i]['image']);
             $info['image'][] = [
                 'id'=> $res[$i]['id'],
                 'theme_id'=>$theme_id,
                 'name'=> $res[$i]['name'],
-                'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'],
+                'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                 'img_height'=> $res[$i]['img_height'],
 //                'img_height'=> $imgsize[1],
             ];
@@ -564,6 +646,7 @@ class WeixinController extends ActiveController
         $infos['theme_name'] = $theme_name['theme_name'];
         return $infos;
     }
+
     //获取搜索图片
     public function actionGetsearchimg()
     {
@@ -582,7 +665,7 @@ class WeixinController extends ActiveController
             case $param == '粉色' : $color = 8;break;
             case $param == '白色' : $color = 9;break;
             case $param == '黑色' : $color = 10;break;
-            case $param == '其他' : $color = 11;break;
+            case $param == '灰色' : $color = 11;break;
             case $param == '红' : $color = 1;break;
             case $param == '橙' : $color = 2;break;
             case $param == '黄' : $color = 3;break;
@@ -593,6 +676,7 @@ class WeixinController extends ActiveController
             case $param == '粉' : $color = 8;break;
             case $param == '白' : $color = 9;break;
             case $param == '黑' : $color = 10;break;
+            case $param == '灰' : $color = 11;break;
         }
         $res1 = category::find()->select('id')->where(['like','category_name',$param])->all();
         $res2 = theme::find()->select('id')->where(['like','theme_name',$param])->all();
@@ -604,7 +688,7 @@ class WeixinController extends ActiveController
         $count2 = '';
         for($k=0;$k<count($res3);$k++){
             $label_res[$k] = Goods::find()
-                ->select('id,image,name')
+                ->select('id,image,name,img_height')
                 ->where(['like','label',','.$res3[$k]['id'].','])
                 ->andWhere(['is_appear'=>1])
                 ->orderBy(['id'=>SORT_DESC])
@@ -634,7 +718,7 @@ class WeixinController extends ActiveController
             $condition .= ' AND (`label` not like \'%,'.$res3[$q]['id'].',%\' or `label` is null)';
         }
         $sql = Goods::find()
-            ->select('id,image,name,theme')
+            ->select('id,image,name,theme,img_height')
             ->where(['color' => $color])
             ->orFilterWhere(['like', 'id', $param])
             ->orFilterWhere(['like', 'name', $param])
@@ -666,12 +750,13 @@ class WeixinController extends ActiveController
         $info = array_slice($end_result,$start,$pageSize,false);
         if($info){
             for($i = 0;$i<count($info);$i++){
-                $imgsize = getimagesize('http://qiniu.zaoanart.com/'.$info[$i]['image']);
+//                $imgsize = getimagesize('http://qiniu.zaoanart.com/'.$info[$i]['image']);
                 $res4['image'][] = [
                     'id' => $info[$i]['id'],
                     'name' => $info[$i]['name'],
-                    'image' => 'http://qiniu.zaoanart.com/'.$info[$i]['image'],
-                    'img_height'=> $imgsize[1],
+                    'image' => 'http://qiniu.zaoanart.com/'.$info[$i]['image'].'?imageView2/2/w/500',
+                    'img_height'=> intval($info[$i]['img_height']),
+//                    'img_height'=> $imgsize[1],
                 ];
             }
             $res4['start'] = $start+$pageSize;
@@ -680,10 +765,13 @@ class WeixinController extends ActiveController
             return $infos;
         }
     }
+
     //获取图片详情
     public function actionGetimg()
     {
         $img_id = $_GET['id'];
+        $up_search_sum = 'UPDATE `tsy_goods` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$img_id.' ';
+        Yii::$app->db->createCommand($up_search_sum)->execute();
         $res = Goods::find()
             ->select('id,name,category,theme,image,img_width')
             ->where(['id'=>$img_id])
@@ -702,6 +790,7 @@ class WeixinController extends ActiveController
         }
 
     }
+
     //获取相似图片
     public function actionGetlikeimage()
     {
@@ -727,7 +816,7 @@ class WeixinController extends ActiveController
             for($i = 0;$i<count($res);$i++){
                 $res1['image'][] = [
                     'id' => $res[$i]['id'],
-                    'image' => 'http://qiniu.zaoanart.com/'.$res[$i]['image'],
+                    'image' => 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                     'img_height' => (int)$res[$i]['img_height'],
                 ];
             }
@@ -796,6 +885,7 @@ class WeixinController extends ActiveController
             $this->img_arr = $may_img_arr;
         }
     }
+
     //获取收藏夹
     public function actionGetkeep()
     {
@@ -819,6 +909,7 @@ class WeixinController extends ActiveController
             return $res;
         }
     }
+
     //获取收藏夹图片
     public function actionGetkeepimg()
     {
@@ -842,7 +933,7 @@ class WeixinController extends ActiveController
                     'id'=> $res['id'],
                     'image'=> 'http://qiniu.zaoanart.com/'.$res['image'],
                     'name'=> $res['name'],
-                    'img_height'=> $res['img_height'],
+                    'img_height'=> (int)$res['img_height'],
                     'checked'=>false
                 ];
             }
@@ -903,7 +994,7 @@ class WeixinController extends ActiveController
         //图片保存路径
         $path = Yii::getAlias('@backend').'\web\test\\';
         //设置头部
-        header("Content-type:image/png;");
+//        header("Content-type:image/png;");
         //框宽(外框宽)
         $box_width = $box_img_width;
         //框高(外框高)
@@ -968,13 +1059,24 @@ class WeixinController extends ActiveController
         imagecopyresized($new_img,$left_img,$box_img_width-$face_widths,0,0,0,$face_widths,$box_img_height,$face_widths,$box_img_height);
 //        imagecolortransparent($new_img,65280);
         imagepng($new_img,$path.'bgimg.png');
+        $data = time();
+        $num = $data + rand(1,9999);
+        //边框图片
         $img_info = filesize($path.'bgimg.png');
         $fp = fopen($path.'bgimg.png', "r");
         $content = fread($fp,$img_info);
         $img_str = chunk_split(base64_encode($content));
         $img_base64 = $img_str;
+        //水印图片
+        $shuiyin_img2 = Yii::getAlias('@backend').'\web\test\logo.png';
+        $img_info1 = filesize($shuiyin_img2);
+        $fp1 = fopen($shuiyin_img2, "r");
+        $content1 = fread($fp1,$img_info1);
+        $img_str1 = chunk_split(base64_encode($content1));
+        $img_base641 = $img_str1;
         $info = [
-            'url'=>$img_base64
+            'url'=>$img_base64,
+            'shuiyin_url'=>$img_base641
         ];
         return $info;
     }
@@ -990,9 +1092,14 @@ class WeixinController extends ActiveController
         $rand = rand(1,9999);
         $str = md5($name.$data.$rand);
         $token = $res['id'].'$ZaoAn.u'.password_hash($str.$password,PASSWORD_DEFAULT);
-        $info['token'] = $token;
-        $info['user_id'] = $res['id'];
-        return $info;
+        $result = Account::updateAll(['last_login_time'=>date("Y-m-d H:i:s"),'token'=>$token],['id'=>$res['id'],'phone'=>$username]);
+        if($result){
+            $info['token'] = $token;
+            $info['user_id'] = $res['id'];
+            return $info;
+        }else{
+            return false;
+        }
     }
 
     //获取用户收藏夹
@@ -1029,6 +1136,8 @@ class WeixinController extends ActiveController
         }else{
             return false;
         }
+        $up_goods_keep_sum = 'UPDATE `tsy_goods` SET `keep_sum_wechat`=`keep_sum_wechat`+1 where `id`='.$img_id.' ';
+        Yii::$app->db->createCommand($up_goods_keep_sum)->execute();
         $res = keep::updateAll(['updated_at'=>date("Y-m-d H:i:s")],['uid'=>$uid,'id'=>$kid]);
         $img = keepimage::find()->where(['kid'=>$kid,'imgid' => $img_id,])->all();
         if($img){
@@ -1315,9 +1424,12 @@ class WeixinController extends ActiveController
                 ->insert('tsy_account',[
                     'username'=>$tel,
                     'phone'=>$tel,
-                    'password'=>md5(123456)
+                    'password'=>md5(123456),
                 ])
                 ->execute();
+            $uid = Yii::$app->db->getLastInsertId();
+            $up_channel = 'UPDATE `tsy_account_channel` SET `count`=`count`+1 where `id`=2 ';
+            Yii::$app->db->createCommand($up_channel)->execute();
             if($result){
                 //登录
                 $name = 'ZaoanArt';
@@ -1325,9 +1437,15 @@ class WeixinController extends ActiveController
                 $data = date('Y.m.d-H:i:s');
                 $rand = rand(1,9999);
                 $str = md5($name.$data.$rand);
-                $token = $uid['id'].'$ZaoAn.u'.password_hash($str.$password,PASSWORD_DEFAULT);
-                return $token;
+                $token = $uid.'$ZaoAn.u'.password_hash($str.$password,PASSWORD_DEFAULT);
+                $result = Account::updateAll(['last_login_time'=>date("Y-m-d H:i:s"),'token'=>$token],['id'=>$uid,'phone'=>$tel]);
+                if($result){
+                    return $token;
+                }else{
+                    return 3;
+                }
             }
+
         }else{
             if($uid['is_deleted'] == 1){
                 return 2;//该手机号被禁止登录或者被删除
@@ -1338,7 +1456,12 @@ class WeixinController extends ActiveController
                 $rand = rand(1,9999);
                 $str = md5($name.$data.$rand);
                 $token = $uid['id'].'$ZaoAn.u'.password_hash($str,PASSWORD_DEFAULT);
-                return $token;
+                $result = Account::updateAll(['last_login_time'=>date("Y-m-d H:i:s"),'token'=>$token],['id'=>$uid['id'],'phone'=>$tel]);
+                if($result){
+                    return $token;
+                }else{
+                    return 3;
+                }
             }
         }
     }
@@ -1348,13 +1471,42 @@ class WeixinController extends ActiveController
     {
         $ImageURL = 'http://qiniu.zaoanart.com/20190409074000729034.jpg';
         $shuiyin_img = 'http://www.zaoanart.com:8000/images/zaoanart_logo_shuiyin.png';
+        $shuiyin_img2 = Yii::getAlias('@backend').'\web\test\logo.png';
+        $img_info = filesize($shuiyin_img2);
+        $fp = fopen($shuiyin_img2, "r");
+        $content = fread($fp,$img_info);
+        $img_str = chunk_split(base64_encode($content));
+        $img_base64 = $img_str;
+        return $img_base64;
+        var_dump($img_base64);die;
+
 //        $base64URL = Qiniu\base64_urlSafeEncode($ImageURL);
         $find = array('+', '/');
         $replace = array('-', '_');
-        $url = str_replace($find, $replace, base64_encode($shuiyin_img));
-        var_dump($url);die;
+        $url = str_replace($find, $replace, base64_encode($shuiyin_img2));
+        var_dump(base64_encode($shuiyin_img2));die;
     }
 
+    //记录访问
+    public function actionRecord_access_wechat()
+    {
+        date_default_timezone_set('PRC');
+        $sql = 'select `id` from `tsy_access_wechat` where TO_DAYS(`created_at`) = TO_DAYS(NOW()) AND hour(`created_at`) = hour(NOW()) ';
+        $id = Yii::$app->db->createCommand($sql)->queryAll();
+        if($id){
+            $up_access_sum = 'UPDATE `tsy_access_wechat` SET `access_sum`=`access_sum`+1 where `id`='.$id[0]['id'].' ';
+            Yii::$app->db->createCommand($up_access_sum)->execute();
+        }else{
+            $res = Yii::$app->db->createCommand()
+                ->insert('tsy_access_wechat',[
+                    'access_sum' => 1,
+                    'created_at' => date("Y-m-d H:i:s"),
+                ])
+                ->execute();
+        }
+    }
+
+    //更新数据库数据
     public function actionUpmysql()
     {
         for($i=54635;$i<108256;$i++){

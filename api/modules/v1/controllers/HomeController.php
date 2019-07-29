@@ -267,6 +267,8 @@ class HomeController extends ActiveController
         }else{
             return false;
         }
+        $up_goods_keep_sum = 'UPDATE `tsy_goods` SET `keep_sum`=`keep_sum`+1 where `id`='.$img_id.' ';
+        Yii::$app->db->createCommand($up_goods_keep_sum)->execute();
         $uid = account::find()->select('id')->where(['phone'=>$tel])->one();
         $kid = keep::find()->select('id')->where(['uid'=>$uid,'keep_name'=>$keep_name])->one();
         if(!$kid && !$uid){
@@ -493,7 +495,6 @@ class HomeController extends ActiveController
             return false;
         }
     }
-
     //查询推荐收藏夹
     public function actionFindreckeep()
     {
@@ -770,6 +771,15 @@ class HomeController extends ActiveController
             return iconv('GB2312','UTF-8',$filename);
         }
     }
+    //记录网站访问量
+    public function actionRecord_access()
+    {
+        var_dump(123);die;
+        $sql = 'select `id` from `tsy_access`where TO_DAYS(`created_at`) = TO_DAYS(NOW())';
+        $up_goods_search_sum = 'UPDATE `tsy_access` SET `access_sum`=`access_sum`+1';
+        Yii::$app->db->createCommand($up_goods_search_sum)->execute();
+    }
+    //查询轮播图
     public function actionFindlunbotu()
     {
         $res = Ad::find()->select('img_name')->where(['is_appear'=>1])->all();

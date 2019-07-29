@@ -8,6 +8,8 @@ use yii\filters\auth\QueryParamAuth;
 use yii\data\ActiveDataProvider;
 use backend\models\goods;
 use backend\models\category;
+use backend\models\color;
+use backend\models\contrast;
 use backend\models\theme;
 use backend\models\account;
 use backend\models\label;
@@ -108,11 +110,13 @@ class GoodsController extends ActiveController
             case 1:$contrast = '>';break;
             case 2:$contrast = 'or';break;
         }
+        $up_label_search_sum = 'UPDATE `tsy_label` SET `search_sum`=`search_sum`+1 where `id`='.$label.' ';
+        Yii::$app->db->createCommand($up_label_search_sum)->execute();
         if($id){
             $info = Goods::find()
                 ->select('id,image,name')
                 ->where(['<>','id',$id])
-                ->andWhere(['like','label',$label])
+                ->andWhere(['like','label',','.$label.','])
                 ->andWhere('`max_length`'.$contrast.'`max_width`')
                 ->andWhere(['is_appear'=>1])
                 ->orderBy(['id'=>SORT_DESC])
@@ -122,7 +126,7 @@ class GoodsController extends ActiveController
             $count = Goods::find()
                 ->select('id,image,name')
                 ->where(['<>','id',$id])
-                ->andWhere(['like','label',$label])
+                ->andWhere(['like','label',','.$label.','])
                 ->andWhere('`max_length`'.$contrast.'`max_width`')
                 ->andWhere(['is_appear'=>1])
                 ->count();
@@ -145,17 +149,19 @@ class GoodsController extends ActiveController
         }else{
             $info = Goods::find()
                 ->select('id,image,name')
-                ->Where(['like','label',$label])
+                ->Where(['like','label',','.$label.','])
                 ->andWhere('`max_length`'.$contrast.'`max_width`')
                 ->andWhere(['is_appear'=>1])
+                ->andWhere(['or', ['<>', 'category', 999], ['<>', 'theme', 999]])
                 ->limit($pageSize)
                 ->offset($start)
                 ->all();
             $count = Goods::find()
                 ->select('id,image,name')
-                ->Where(['like','label',$label])
+                ->Where(['like','label',','.$label.','])
                 ->andWhere('`max_length`'.$contrast.'`max_width`')
                 ->andWhere(['is_appear'=>1])
+                ->andWhere(['or', ['<>', 'category', 999], ['<>', 'theme', 999]])
                 ->count();
             $res = array_slice($info,0,$pageSize,false);
             $res2 = label::find()->select('label_name')->where(['id'=>$label])->one();
@@ -183,6 +189,8 @@ class GoodsController extends ActiveController
         $label = array_filter(explode(',',$res['label']));
         sort($label);
         $label_list = [];
+        $up_goods_search_sum = 'UPDATE `tsy_goods` SET `search_sum`=`search_sum`+1 where `id`='.$id.' ';
+        Yii::$app->db->createCommand($up_goods_search_sum)->execute();
         for($i = 0;$i<count($label);$i++){
             $data = label::find()->select('label_name,id')->where(['id'=>$label[$i]])->one();
             $label_name = $data['label_name'];
@@ -382,11 +390,30 @@ class GoodsController extends ActiveController
         $contrast = '';
         $res = [];
         $cate_name = $theme_name = $color = '';
+//        switch($_GET['contrast']){
+//            case -1:$contrast = '<';break;
+//            case 0:$contrast = '=';break;
+//            case 1:$contrast = '>';break;
+//            case 2:$contrast = 'or';break;
+//        }
         switch($_GET['contrast']){
-            case -1:$contrast = '<';break;
-            case 0:$contrast = '=';break;
-            case 1:$contrast = '>';break;
-            case 2:$contrast = 'or';break;
+            case -1:$contrast = ' AND ((`img_width` >= (`img_height`*1.2)) or (`img_height` <= (`img_width`*0.8)))';break;//横图
+            case 1:$contrast = ' AND ((`img_height` >= (`img_width`*1.2)) or (`img_width` <= (`img_height`*0.8)))';break;//竖图
+            case 0:$contrast = ' AND ((`img_width` <= (`img_height`*1.2) AND `img_width` >= (`img_height`*0.8)) or (`img_height` <= (`img_width`*1.2) AND `img_height` >= (`img_width`*0.8)))';break;//方图
+            case 2:$contrast = ' AND (`img_height` or `img_width`)';break;
+        }
+        if($_GET['contrast'] == 1){
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum`=`search_sum`+1 where `id`=2 ';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
+        }else if($_GET['contrast'] == 0){
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum`=`search_sum`+1 where `id`=3';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
+        }else if($_GET['contrast'] == -1){
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum`=`search_sum`+1 where `id`=1 ';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
+        }else{
+            $up_contrast_search_sum = 'UPDATE `tsy_contrast` SET `search_sum`=`search_sum`+1 where `id`=4 ';
+            Yii::$app->db->createCommand($up_contrast_search_sum)->execute();
         }
         if($cate_id){
             $cate_name = category::find()->select('category_name')->where(['id'=>$cate_id])->one();
@@ -402,8 +429,10 @@ class GoodsController extends ActiveController
         }else{
             $res1 = category::find()->select('id')->where(['like','category_name',$search])->all();
             $res2 = theme::find()->select('id')->where(['like','theme_name',$search])->all();
+            $res3= label::find()->select('id')->where(['like','label_name',$search])->all();
             $cate_res = null;
             $theme_res = null;
+            $label_res = null;
             if($res1){
                 for($y=0;$y<count($res1);$y++){
                     $cate_res .= ' or (`category`= '.$res1[$y]['id'].')';
@@ -416,8 +445,16 @@ class GoodsController extends ActiveController
                 }
                 $theme_res = ' or ('.ltrim($theme_res,' or').')';
             }
+            if($res3){
+                for($x=0;$x<count($res3);$x++){
+                    $label_res .= " or (`label` like '%,".$res3[$x]['id'].",%')";
+                }
+                $label_res = ''.$label_res.'';
+            }
         }
         if($color_id){
+            $up_color_search_sum = 'UPDATE `tsy_color` SET `search_sum`=`search_sum`+1 where `id`='.$color_id.' ';
+            Yii::$app->db->createCommand($up_color_search_sum)->execute();
             switch ($color_id){
                 case $color_id == 1 : $color = '红色';break;
                 case $color_id == 2 : $color = '橙色';break;
@@ -473,7 +510,7 @@ class GoodsController extends ActiveController
             }else{
                 $search_color = null;
             }
-            $search_condition = ' AND ('.$search_id.$search_name.$search_category.$search_theme.$search_image.$search_author.$search_price.$search_content.$search_color.')';
+            $search_condition = ' AND ('.$search_id.$search_name.$search_category.$search_theme.$search_image.$search_author.$search_price.$search_content.$search_color.$label_res.')';
         }else{
             $search_condition = null;
         }
@@ -494,9 +531,9 @@ class GoodsController extends ActiveController
 //                        ->where(['`max_length`',$contrast ,'`max_width`'])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                     $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                     $count = intval($res2[0]['count(id)']);
                 }else{
@@ -506,13 +543,15 @@ class GoodsController extends ActiveController
                         ->where(['color'=>$color_id])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`color`='.$color_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`color`='.$color_id.')'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                     $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                     $count = intval($res2[0]['count(id)']);
                 }
             }else{
+                $up_theme_search_sum = 'UPDATE `tsy_theme` SET `search_sum`=`search_sum`+1 where `id`='.$theme_id.' ';
+                Yii::$app->db->createCommand($up_theme_search_sum)->execute();
                 if($color_id == 0){
                     //颜色和cate空,theme不空
                     $sql = Goods::find()
@@ -520,9 +559,9 @@ class GoodsController extends ActiveController
                         ->where(['theme'=>$theme_id])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`theme`='.$theme_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`theme`='.$theme_id.')'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                     $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                     $count = intval($res2[0]['count(id)']);
                 }else{
@@ -532,14 +571,16 @@ class GoodsController extends ActiveController
                         ->where(['theme'=>$theme_id,'color'=>$color_id])
                         ->createCommand()
                         ->getRawSql();
-                    $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                    $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                     $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND ((`theme`='.$theme_id.') AND (`color`='.$color_id.')) AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                    $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND ((`theme`='.$theme_id.') AND (`color`='.$color_id.'))'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                     $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                     $count = intval($res2[0]['count(id)']);
                 }
             }
         }else{
+            $up_cate_search_sum = 'UPDATE `tsy_category` SET `search_sum`=`search_sum`+1 where `id`='.$cate_id.' ';
+            Yii::$app->db->createCommand($up_cate_search_sum)->execute();
             if($theme_id == 0){
                 if($color_id == 0){
                     //颜色和theme空,cate不空
@@ -547,6 +588,8 @@ class GoodsController extends ActiveController
                         ->select('pid')
                         ->where(['id'=>$cate_id])
                         ->one();
+//                    $up_search_sum = 'UPDATE `tsy_category` SET `search_sum`=`search_sum`+1 where `id`='.$cate_id.' ';
+//                    Yii::$app->db->createCommand($up_search_sum)->execute();
                     if($cate_pid['pid']==0){
                         $id_arr = category::find()
                             ->select('id')
@@ -558,9 +601,9 @@ class GoodsController extends ActiveController
                                 ->where(['category'=>$cate_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.')'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                             $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                             $count = intval($res2[0]['count(id)']);
                         }else{
@@ -576,11 +619,11 @@ class GoodsController extends ActiveController
                                     ->where(['is_appear'=>1])
                                     ->createCommand()
                                     ->getRawSql();
-                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].')'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                                 $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                                 $count += intval($res2[0]['count(id)']);
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.' AND ('.substr($condition,3).')'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else{
@@ -589,9 +632,9 @@ class GoodsController extends ActiveController
                             ->where(['category'=>$cate_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.')'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                         $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                         $count = intval($res2[0]['count(id)']);
                     }
@@ -612,9 +655,9 @@ class GoodsController extends ActiveController
                                 ->where(['category'=>$cate_id,'color' => $color_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`color`='.$color_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`color`='.$color_id.')'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                             $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                             $count = intval($res2[0]['count(id)']);
                         }else{
@@ -631,11 +674,11 @@ class GoodsController extends ActiveController
                                     ->andWhere(['is_appear'=>1])
                                     ->createCommand()
                                     ->getRawSql();
-                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].') AND (`color`='.$color_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].') AND (`color`='.$color_id.')'.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                                 $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                                 $count += intval($res2[0]['count(id)']);
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.' AND ('.substr($condition,3).') '.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else {
@@ -644,14 +687,16 @@ class GoodsController extends ActiveController
                             ->where(['category' => $cate_id, 'color' => $color_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`color`='.$color_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`color`='.$color_id.') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                         $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                         $count = intval($res2[0]['count(id)']);
                     }
                 }
             }else{
+                $up_theme_search_sum = 'UPDATE `tsy_theme` SET `search_sum`=`search_sum`+1 where `id`='.$theme_id.' ';
+                Yii::$app->db->createCommand($up_theme_search_sum)->execute();
                 if($color_id == 0){
                     //颜色空,theme和cate不空
                     $cate_pid = category::find()
@@ -669,9 +714,9 @@ class GoodsController extends ActiveController
                                 ->where(['category'=>$cate_id,'theme' => $theme_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                             $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                             $count = intval($res2[0]['count(id)']);
                         }else{
@@ -687,11 +732,11 @@ class GoodsController extends ActiveController
                                     ->where(['theme' => $theme_id])
                                     ->createCommand()
                                     ->getRawSql();
-                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].') AND (`theme`='.$theme_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].') AND (`theme`='.$theme_id.') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                                 $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                                 $count += intval($res2[0]['count(id)']);
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.' AND ('.substr($condition,3).') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else {
@@ -700,9 +745,9 @@ class GoodsController extends ActiveController
                             ->where(['category' => $cate_id, 'theme' => $theme_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                         $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                         $count = intval($res2[0]['count(id)']);
                     }
@@ -723,9 +768,9 @@ class GoodsController extends ActiveController
                                 ->where(['category'=>$cate_id,'theme' => $theme_id,'color' => $color_id])
                                 ->createCommand()
                                 ->getRawSql();
-                            $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') AND (`color`='.$color_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                            $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') AND (`color`='.$color_id.') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                             $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                             $count = intval($res2[0]['count(id)']);
                         }else{
@@ -741,11 +786,11 @@ class GoodsController extends ActiveController
                                     ->where(['theme' => $theme_id,'color' => $color_id])
                                     ->createCommand()
                                     ->getRawSql();
-                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].') AND (`theme`='.$theme_id.') AND (`color`='.$color_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                                $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$result[$i]['id'].') AND (`theme`='.$theme_id.') AND (`color`='.$color_id.') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                                 $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                                 $count += intval($res2[0]['count(id)']);
                             }
-                            $sql_str = $sql.' AND ('.substr($condition,3).') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                            $sql_str = $sql.' AND ('.substr($condition,3).') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                             $res = Yii::$app->db->createCommand($sql_str)->queryAll();
                         }
                     }else {
@@ -754,9 +799,9 @@ class GoodsController extends ActiveController
                             ->where(['category' => $cate_id, 'theme' => $theme_id, 'color' => $color_id])
                             ->createCommand()
                             ->getRawSql();
-                        $sql_str = $sql.' AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
+                        $sql_str = $sql.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999)) AND (`is_appear`=1) ORDER BY `id` DESC LIMIT '.$pageSize.' OFFSET '.$start.'';
                         $res = Yii::$app->db->createCommand($sql_str)->queryAll();
-                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') AND (`color`='.$color_id.') AND (`max_length` '.$contrast.' `max_width`)'.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
+                        $count_sql = 'select count(id) FROM `tsy_goods` WHERE `is_appear`=1 AND (`category`='.$cate_id.') AND (`theme`='.$theme_id.') AND (`color`='.$color_id.') '.$contrast.$search_condition.' AND ((`category` <> 999) or (`theme` <> 999))';
                         $res2 = Yii::$app->db->createCommand($count_sql)->queryAll();
                         $count = intval($res2[0]['count(id)']);
                     }
@@ -792,6 +837,13 @@ class GoodsController extends ActiveController
             $res = $this->Decoration1($info);
             return $res;
         }
+    }
+    //记录装裱
+    public function actionRecord_decoration()
+    {
+        $goods_id = $_POST['goods_id'];
+        $up_decoration_sum = 'UPDATE `tsy_goods` SET `decoration_sum`=`decoration_sum`+1 where `id`='.$goods_id.' ';
+        Yii::$app->db->createCommand($up_decoration_sum)->execute();
     }
     //装裱画框(A类)
     function Decoration1($info)
@@ -882,7 +934,7 @@ class GoodsController extends ActiveController
         imagecopyresized($new_img,$bottom_img,0,0,0,0,$c_width,$small_face,$box_width,$face_width);
         //复制左框
         imagecopyresized($new_img,$left_img,0,0,0,0,$small_face,$c_height,$face_width,$box_height);
-        //垂直对称左图生成右图
+        //左右对称左图生成右图
         imageflip($left_img,IMG_FLIP_HORIZONTAL);
         //复制右框
         imagecopyresized($new_img,$left_img,$c_width-$small_face+1,0,0,0,$small_face,$c_height,$face_width,$box_height);
@@ -1144,27 +1196,30 @@ class GoodsController extends ActiveController
     //装裱单立体
     public function actionSinglestereo()
     {
-        $filename1 = Yii::getAlias('@backend').'\web\test\top1.jpg';
-        $filename2 = Yii::getAlias('@backend').'\web\test\left1.jpg';
-        $filename3 = Yii::getAlias('@backend').'\web\test\bottom1.jpg';
-        $filename4 = Yii::getAlias('@backend').'\web\test\right1.jpg';
-        if(file_exists($filename1)){
-            unlink($filename1);
-        }
-        if(file_exists($filename2)){
-            unlink($filename2);
-        }
-        if(file_exists($filename3)){
-            unlink($filename3);
-        }
-        if(file_exists($filename4)){
-            unlink($filename4);
-        }
+//        $filename1 = Yii::getAlias('@backend').'\web\test\top1.jpg';
+//        $filename2 = Yii::getAlias('@backend').'\web\test\left1.jpg';
+//        $filename3 = Yii::getAlias('@backend').'\web\test\bottom1.jpg';
+//        $filename4 = Yii::getAlias('@backend').'\web\test\right1.jpg';
+//        if(file_exists($filename1)){
+//            unlink($filename1);
+//        }
+//        if(file_exists($filename2)){
+//            unlink($filename2);
+//        }
+//        if(file_exists($filename3)){
+//            unlink($filename3);
+//        }
+//        if(file_exists($filename4)){
+//            unlink($filename4);
+//        }
         $box_img_width1 = $_GET['box_img_width1'];
         $box_img_height1 = $_GET['box_img_height1'];
         $img_width1 = $_GET['img_width1'];
         $img_height1 = $_GET['img_height1'];
         $face_width1 = $_GET['face_width'];
+        $small_face = $_GET['small_face'];
+        $c_width = $_GET['need_width'];
+        $c_height = $_GET['need_height'];
         //$img_name = $_GET['img_name'];
 //        $face_width1 = 15;
         //源图片名
@@ -1192,80 +1247,49 @@ class GoodsController extends ActiveController
         //框高(外框高)
         $box_height = $box_img_height1;
         //生成左图
-        $this->left_img1($path,$img_name,$img_width,$img_height,$face_width,$box_width,$box_height);
+        $left = $this->left_img1($path,$img_name,$img_width,$img_height,$face_width,$box_width,$box_height);
 //            imagepng($left_img);
         //生成下图
-        $this->bottom_img1($path,$img_name,$img_width,$img_height,$face_width,$box_width,$box_height);
-//            imagepng($bottom_img);
-        //打开左图水平对称生成右图
-        $img_left = new \Imagick($path.'left1.jpg');
-        $img_left->flopImage();
-        //保存图片
-        file_put_contents($path.'right1.jpg',$img_left);
-        //打开下图垂直对称生成上图
-        $img_bottom = new \Imagick($path.'bottom1.jpg');
-        $img_bottom->flipImage();
-        //保存图片
-        file_put_contents($path.'top1.jpg',$img_bottom);
+        $bottom = $this->bottom_img1($path,$img_name,$img_width,$img_height,$face_width,$box_width,$box_height);
+        //顺时针旋转180度生成右边图
+//        imageflip($left,IMG_FLIP_HORIZONTAL);
+//        $right = imagerotate($left,180,0);
         //生成一个画板
-        $new_img = imagecreatetruecolor($box_width,$box_height);
+        $new_img = imagecreatetruecolor($c_width,$c_height);
         //设置背景颜色
         $color = imagecolorallocate($new_img, 0, 255, 255);
-
         //填充颜色
-        imagefill ($new_img,0,0,$color);
-
-        //保存图片
-        imagecolortransparent($new_img,65535);
-        imagepng($new_img,$path.'new_img1.png');
-        //打开图片
-        $top_imgs = imagecreatefrompng($path.'top1.jpg');
-        imagecolortransparent($top_imgs,65280);
-        imagepng($top_imgs,$path.'top1.jpg');
-        $right_imgs = imagecreatefrompng($path.'right1.jpg');
-        imagecolortransparent($right_imgs,65280);
-        imagepng($right_imgs,$path.'right1.jpg');
-
-        $top_img = imagecreatefrompng($path.'top1.jpg');
-        $right_img = imagecreatefrompng($path.'right1.jpg');
-        $bottom_img = imagecreatefrompng($path.'bottom1.jpg');
-        $left_img = imagecreatefrompng($path.'left1.jpg');
-
-        //打开画布
-        $newimg = imagecreatefrompng($path.'new_img1.png');
-
-        //拷贝图片
-//            $decora_img = imagecreatefromjpeg(Yii::getAlias('@backend').'\web\goods\\'.$toimg_name);
-
-//            imagecopymerge($newimg,$decora_img,$face_width,$face_width,0,0,$box_width,$box_height,100);
-//            imagejpeg($newimg,$path.'new_img2.jpg');
-
-        //复制上框
-        imagecopymerge($newimg,$top_img,0,0,0,0,$box_width,$face_width,100);
-        //复制左框
-        imagecopymerge($newimg,$left_img,0,0,0,0,$face_width,$box_height,100);
+        imagefill($new_img,0,0,$color);
         //复制下框
-        imagecopymerge($newimg,$bottom_img,0,$box_height-$face_width,0,0,$box_width,$face_width,100);
-        //复制右框
-        imagecopymerge($newimg,$right_img,$box_width-$face_width,0,0,0,$face_width,$box_height,100);
-        //保存图片
-        imagepng($newimg,$path.'singlestereo.jpg');
+        imagecopyresized($new_img,$bottom,0,$c_height-$small_face+1,0,0,$c_width,$small_face,$box_width,$face_width);
+        //垂直对称下图生成上图
+        imageflip($bottom,IMG_FLIP_VERTICAL);
+//        //复制上框
+        imagecopyresized($new_img,$bottom,0,0,0,0,$c_width,$small_face,$box_width,$face_width);
+//        //复制左框
+        imagecopyresized($new_img,$left,0,0,0,0,$small_face,$c_height,$face_width,$box_height);
+//        //左右对称左图生成右图
+        imageflip($left,IMG_FLIP_HORIZONTAL);
+//        //复制右框
+        imagecopyresized($new_img,$left,$c_width-$small_face+1,0,0,0,$small_face,$c_height,$face_width,$box_height);
+        imagecolortransparent($new_img,65535);
+        imagepng($new_img,$path.'singlestereo.png',9);
     }
     //生成左图
     function left_img1($path,$img_name,$img_width,$img_height,$face_width,$box_width,$box_height)
     {
+
         //目标图像
         $dst_im = imagecreatetruecolor($face_width,$box_height);
+        //源图像
         $root_img = imagecreatefromjpeg($path.$img_name);
-        //copy所需画框区域(不拉伸)
-        //imagecopy( $dst_im, $root_img, 0, 0, 0, 0, $face_width, $box_height);
         //copy所需画框区域(拉伸)
         imagecopyresampled($dst_im,$root_img,0,0,0,0,$face_width,$box_height,$face_width,3600);
         //设置三角形顶点位置
         $points = [
-            2,0,
+            0,0,
             $face_width,0,
-            $face_width,$face_width-2
+            $face_width,$face_width
         ];
         //设置颜色
         $blue = imagecolorallocate($dst_im, 0, 255, 0);
@@ -1273,9 +1297,9 @@ class GoodsController extends ActiveController
         $root_img = imagefilledpolygon($dst_im,$points,3,$blue);
         //设置三角形顶点位置
         $points2 = [
-            1,$box_height,
+            0,$box_height,
             $face_width,$box_height,
-            $face_width,$box_height-$face_width+1,
+            $face_width,$box_height-$face_width,
         ];
         //设置颜色
         $green = imagecolorallocate($dst_im, 0, 255, 0);
@@ -1283,30 +1307,23 @@ class GoodsController extends ActiveController
         $is = imagefilledpolygon($dst_im,$points2,3,$green);
         //设置透明色
         imagecolortransparent($dst_im,65280);
-        //保存图片(左边)
-        imagepng($dst_im,$path.'left1.jpg');
-//            return $dst_im;
+        return $dst_im;
     }
     //生成下图
     function bottom_img1($path,$img_name,$img_width,$img_height,$face_width,$box_width,$box_height)
     {
+
         //目标图像
         $dst_im = imagecreatetruecolor($box_width,$face_width);
-        //旋转图像
-        $img_root = new \Imagick($path.$img_name);
+        //图片路径
+        $url = $path.$img_name;
+        //打开图片
+        $root_img = imagecreatefromjpeg($url);
         //逆时针旋转90度生成下边图
-        $img_root->rotateimage('rgb(0,255,0)',-90);
-        //保存图片
-        file_put_contents($path.'bottom1.jpg',$img_root);
-        //打开下图
-        $root_img = imagecreatefromjpeg($path.'bottom1.jpg');
-        //拷贝所需区域(不拉伸)
-        //imagecopy( $dst_im, $root_img, 0, 0, 0, 0,$box_width,$face_width);
+        $root_img = imagerotate($root_img,90,0);
         //copy所需画框区域(拉伸)
         imagecopyresampled($dst_im,$root_img,0,0,0,0,$box_width,$face_width,3600,$face_width);
-        //保存截好的下图
-        imagepng($dst_im,$path.'bottom1.jpg');
-        //设置三角形顶点位置
+//        //设置三角形顶点位置
         $points = [
             0,0,
             $face_width,0,
@@ -1328,8 +1345,7 @@ class GoodsController extends ActiveController
         $is = imagefilledpolygon($dst_im,$points2,3,$green);
         //设置透明色
         imagecolortransparent($dst_im,65280);
-        imagepng($dst_im,$path.'bottom1.jpg');
-//        return $dst_im;
+        return $dst_im;
     }
     //可能要找的图片(10张)
     public function actionFindmayimg()
@@ -1683,7 +1699,6 @@ class GoodsController extends ActiveController
         ];
         return $img_info;
     }
-
 }
 
 
