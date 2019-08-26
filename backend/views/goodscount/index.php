@@ -83,6 +83,9 @@ $this->params['breadcrumbs'][] = $this->title;
     <p>
         <link href="https://cdn.bootcss.com/toastr.js/2.1.4/toastr.min.css" rel="stylesheet">
         <script src="https://cdn.bootcss.com/toastr.js/2.1.4/toastr.min.js"></script>
+        <a href="https://mp.weixin.qq.com/wxamp/statistics/visit/behavior?token=2096498381&lang=zh_CN" target="_blank">小程序数据分析</a>
+        <a href="https://das.base.shuju.aliyun.com/token3rd/dashboard/view/pc.htm?pageId=665a197a-d0cf-4478-af4e-e6ef07f0631c&accessToken=84e2eec99f69774983289dd4173d7070" target="_blank">PC数据分析</a>
+        <a href="http://das.base.shuju.aliyun.com/dashboard/pc.htm?workspaceId=b33b4b2a-a3e7-46dd-8c69-5d48cfc1765e&pageId=6093ddb6-31b2-4996-ab67-04f27968c82c" target="_blank">PC用户分析</a>
 <!--    每页显示数量-->
     <div>
         <input id="pagesize" type="text" placeholder="每页显示数量" style="width:100px">

@@ -60,6 +60,7 @@ class RegisterController extends ActiveController
                         'phone'=>$tel,
                         'username'=>$tel,
                         'password'=>md5($pwd),
+                        'icon'=>'default_icon.jpg',
                         'ip_address'=>$ip,
                         'position'=>$city,
                     ])

@@ -13,6 +13,9 @@ use backend\models\keepimage;
 use backend\models\Shopcar;
 use backend\models\History;
 use moonland\phpexcel\Excel;
+use backend\models\attention;
+use backend\models\attentionUser;
+use backend\models\accountChannel;
 
 class HomeController extends ActiveController
 {
@@ -121,7 +124,7 @@ class HomeController extends ActiveController
             return 0;
         }
     }
-    //查询收藏夹
+    //查询我的收藏夹
     public function actionFindkeep()
     {
         if($_GET){
@@ -131,19 +134,23 @@ class HomeController extends ActiveController
         }
         $user = account::find()->select('id')->where(['phone'=>$tel])->one();
         $uid = $user['id'];
-        $keep = keep::find()->select('id,keep_name')->where(['uid'=>$uid])->all();
+        $keep = keep::find()->select('id,keep_name,uid,heat,img_ratio')->where(['uid'=>$uid])->all();
         if($keep){
             for($i = 0; $i<count($keep);$i++){
-                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]])->all();
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
                 for ($k = 0; $k<count($res2[$i]);$k++){
                     $res3[$i][] = goods::find()->select('id,name,image,')->where(['id'=>$res2[$i][$k]['imgid']])->one();
                     $res[$i][] = [
                         'id' => $keep[$i]['id'],
                         'keep_name' => $keep[$i]['keep_name'],
+                        'heat' => $keep[$i]['heat'],
+                        'attention_num' => $attention_num,
+                            'img_ratio'=> $keep[$i]['img_ratio'],
 //                        'kid' => $res2[$i][$k]['id'],
                         'imgid' => $res2[$i][$k]['imgid'],
                         'imgname' => $res3[$i][$k]['name'],
-                        'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/2/h/400'
+                        'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image']
                     ];
                 }
             }
@@ -787,6 +794,369 @@ class HomeController extends ActiveController
             $info[$i] = $res[$i]['img_name'];
         }
         return $info;
+    }
+    //获取用户名头像,关注收藏夹,关注的人
+    public function actionGetusername()
+    {
+        $tel = $_GET['tel'];
+        $username = account::find()->select('id,username,icon')->where(['phone'=>$tel])->one();
+        $my_attention = attention::find()->select('id,kid,uid')->where(['uid'=>$username['id']])->count();
+        $attention_user = attentionUser::find()->select('id')->where(['uid'=>$username['id']])->count();
+        $info = [
+            'username'=>$username['username'],
+//            'icon'=>'http://qiniu.zaoanart.com/'.$username['icon'],
+            'icon'=>'http://118.178.89.229/resource/userIcon/'.$username['icon'],
+            'my_attention'=>$my_attention,
+            'attention_user_num'=>$attention_user,
+            'uid'=>$username['id']
+        ];
+        return $info;
+    }
+    //获取用户名头像,关注收藏夹,关注的人
+    public function actionGetusername1()
+    {
+        $tel = $_GET['tel'];
+        $uid = $_GET['uid'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $user_id = $user['id'];
+        $username = account::find()->select('id,username,icon')->where(['id'=>$uid])->one();
+        $my_attention = attention::find()->select('id,kid,uid')->where(['uid'=>$username['id']])->count();
+        $attention_user = attentionUser::find()->select('id')->where(['uid'=>$username['id']])->count();
+        $is_attention = attentionUser::find()->select('id')->where(['attention_uid'=>$username['id'],'uid'=>$user_id])->all();
+        if($is_attention){
+            $is_attention_user = 1;//已经关注
+        }else{
+            $is_attention_user = 2;//未关注
+        }
+        $info = [
+            'username'=>$username['username'],
+//            'icon'=>'http://qiniu.zaoanart.com/'.$username['icon'],
+            'icon'=>'http://118.178.89.229/resource/userIcon/'.$username['icon'],
+            'my_attention'=>$my_attention,
+            'attention_user_num'=>$attention_user,
+            'uid'=>$username['id'],
+            'is_attention_user'=>$is_attention_user
+        ];
+        return $info;
+    }
+    //获取我关注的收藏夹
+    public function actionFindkeep2()
+    {
+        if(!$_GET){
+            return false;
+        }
+        $user = account::find()->select('id')->where(['phone'=>$_GET['tel']])->one();
+        $uid = $user['id'];
+//        $uid = intval($_GET['uid']);
+        $attention_keep = attention::find()->select('id,kid,uid')->where(['uid'=>$uid])->all();
+        $attention_num = count($attention_keep);
+        if($attention_keep) {
+            for ($i = 0; $i < count($attention_keep); $i++) {
+                $res2 = keepimage::find()->select('id,imgid')->where(['kid' => $attention_keep[$i]['kid']])->limit(4)->all();
+                $keep = keep::find()->select('id,keep_name,uid,img_ratio,heat')->where(['id' => $attention_keep[$i]['kid']])->one();
+                $attention_count = attention::find()->select('id')->where(['kid' => $keep['id']])->count();
+                if (count($res2) <= 0) {
+                    $res[$i][] = [
+                        'keep_id' => $attention_keep[$i]['kid'],
+                        'keep_name' => $keep['keep_name'],
+                        'uid' => $keep['uid'],
+                        'img_ratio' => '1',
+                        'attention_num' => $attention_num,
+                        'attention_count' => $attention_count,
+                        'heat' => $keep['heat'],
+                        'imgid' => '',
+                        'is_attention' => 2,
+                        'image' => ''
+                    ];
+                } else {
+                    for ($k = 0; $k < count($res2); $k++) {
+                        $res3[$i][] = goods::find()->select('id,name,image')->where(['id' => $res2[$k]['imgid']])->one();
+                        if ($res2[$k]['imgid']) {
+                            $res[$i][] = [
+                                'keep_id' => $attention_keep[$i]['kid'],
+                                'keep_name' => $keep['keep_name'],
+                                'img_ratio' => $keep['img_ratio'],
+                                'uid' => $keep['uid'],
+                                'attention_num' => $attention_num,
+                                'attention_count' => $attention_count,
+                                'heat' => $keep['heat'],
+                                'imgid' => $res2[$k]['imgid'],
+                                'is_attention' => 2,
+                                'image' => 'http://qiniu.zaoanart.com/' . $res3[$i][$k]['image']
+                            ];
+                        }
+                    }
+                }
+            }
+            sort($res);
+            return $res;
+        }
+    }
+
+    //获取我关注的人
+    public function actionFindattentionuser()
+    {
+        $tel = $_GET['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $res = attentionUser::find()->select('id,attention_uid')->where(['uid'=>$uid])->all();
+        $user_info = [];
+        for($i=0;$i<count($res);$i++){
+            $res2 = account::find()->select('id,username,icon')->where(['id'=>$res[$i]['attention_uid']])->one();
+            $attention_keep = attention::find()->select('id')->where(['uid'=>$res2['id']])->count();
+            $attention_user = attentionUser::find()->select('id')->where(['uid'=>$res2['id']])->count();
+            $user_info[] = [
+                'uid'=>$res2['id'],
+                'username'=>$res2['username'],
+                'attention_keep'=>$attention_keep,
+                'attention_user'=>$attention_user,
+//                'image'=>'http://qiniu.zaoanart.com/'.$res2['icon'],
+                'image'=>'http://118.178.89.229/resource/userIcon/'.$res2['icon'],
+            ];
+        }
+        return $user_info;
+    }
+
+    //查询用户收藏夹
+    public function actionFinduserkeep()
+    {
+        if($_GET){
+            $tel = $_GET['tel'];
+            $uid = $_GET['uid'];
+        }else{
+            return false;
+        }
+        $current_uid = $_GET['uid'];
+        $attention_keep = [];
+        $username = account::find()->select('id,username')->where(['id'=>$current_uid])->one();
+        $keep = keep::find()->select('id,keep_name,uid,img_ratio')->where(['uid'=>$current_uid])->all();
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $attention_keep = attention::find()->select('id,kid')->where(['uid'=>$user['id']])->all();
+        if($keep){
+            for($i = 0; $i<count($keep);$i++){
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
+                for ($k = 0; $k<count($res2[$i]);$k++){
+                    $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
+                    if($res2[$i][$k]['imgid']){
+                        $res[$i][] = [
+                            'keep_id' => $keep[$i]['id'],
+                            'uid' => $keep[$i]['uid'],
+                            'username' => $username['username'],
+                            'keep_name' => $keep[$i]['keep_name'],
+                            'img_ratio' => $keep[$i]['img_ratio'],
+                            'imgid' => $res2[$i][$k]['imgid'],
+                            'attention_num' => $attention_num,
+                            'is_attention' => 1,//没有关注
+                            'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image']
+                        ];
+                    }
+                }
+            }
+            if($attention_keep){
+                for($z=0;$z<count($attention_keep);$z++){
+                    for($x=0;$x<count($res);$x++){
+                        for($c=0;$c<count($res[$x]);$c++){
+                            if($attention_keep[$z]['kid'] == (int)$res[$x][$c]['keep_id']){
+                                $res[$x][$c]['is_attention'] = 2;
+                            }
+                        }
+                    }
+                }
+            }
+            sort($res);
+            return $res;
+        }
+    }
+
+    //获取用户关注的收藏夹
+    public function actionUserattenkeep()
+    {
+        if($_GET){
+            $tel = $_GET['tel'];
+            $uid = $_GET['uid'];
+        }else{
+            return false;
+        }
+        $user = account::find()->select('id')->where(['phone'=>$_GET['tel']])->one();
+        $user_id = $user['id'];
+        $current_uid = $_GET['uid'];
+        $attention_keep = [];
+        $username = account::find()->select('username')->where(['id'=>$current_uid])->one();
+        $attention_keep = attention::find()->select('id,kid,uid')->where(['uid'=>$uid])->all();
+        for($v=0;$v<count($attention_keep);$v++){
+            $keep[] = keep::find()->select('id,keep_name,uid,img_ratio')->where(['id'=>$attention_keep[$v]['kid']])->one();
+        }
+        if($keep){
+            for($i = 0; $i<count($keep);$i++){
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
+                for ($k = 0; $k<count($res2[$i]);$k++){
+                    $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
+                    if($res2[$i][$k]['imgid']){
+                        $res[$i][] = [
+                            'keep_id' => $keep[$i]['id'],
+                            'uid' => $keep[$i]['uid'],
+                            'username' => $username['username'],
+                            'keep_name' => $keep[$i]['keep_name'],
+                            'img_ratio' => $keep[$i]['img_ratio'],
+                            'imgid' => $res2[$i][$k]['imgid'],
+                            'attention_num' => $attention_num,
+                            'is_attention' => 1,//没有关注
+                            'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image']
+                        ];
+                    }
+                }
+            }
+            sort($res);
+            $attention_keep = attention::find()->select('id,kid,uid')->where(['uid'=>$user_id])->all();
+            if($attention_keep){
+                for($z=0;$z<count($attention_keep);$z++){
+                    for($x=0;$x<count($res);$x++){
+                        for($c=0;$c<count($res[$x]);$c++){
+                            if($attention_keep[$z]['kid'] == (int)$res[$x][$c]['keep_id']){
+                                $res[$x][$c]['is_attention'] = 2;
+                            }
+                        }
+                    }
+                }
+            }
+            sort($res);
+            return $res;
+        }
+    }
+
+    //获取用户关注的人
+    public function actionUserattentionuser()
+    {
+        $uid = (int)$_GET['uid'];
+        $tel = $_GET['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $user_id = $user['id'];
+        $res = attentionUser::find()->select('id,attention_uid')->where(['uid'=>$uid])->all();
+        $user_info = [];
+        for($i=0;$i<count($res);$i++){
+            $res2 = account::find()->select('id,username,icon')->where(['id'=>$res[$i]['attention_uid']])->one();
+            $attention_keep = attention::find()->select('id')->where(['uid'=>$res2['id']])->count();
+            $attention_user = attentionUser::find()->select('id')->where(['uid'=>$res2['id']])->count();
+            $is_attention = attentionUser::find()->select('id')->where(['uid'=>$user_id,'attention_uid'=>$res2['id']])->all();
+            if($is_attention){
+                $is_attentions = true;
+            }else{
+                $is_attentions = false;
+            }
+            $user_info[] = [
+                'user_id'=>$uid,
+                'uid'=>$res2['id'],
+                'username'=>$res2['username'],
+                'attention_keep'=>$attention_keep,
+                'attention_user'=>$attention_user,
+                'is_attention'=>$is_attentions,
+//                'image'=>'http://qiniu.zaoanart.com/'.$res2['icon'],
+                'image'=>'http://www.zaoanart.com:8000/userIcon/'.$res2['icon'],
+            ];
+        }
+        return $user_info;
+    }
+
+    //取消关注收藏夹
+    public function actionDel_attention_keep()
+    {
+        $keep_id = $_GET['keep_id'];
+        $tel = $_GET['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        if($uid && $keep_id){
+            $res = attention::find()->select('id')->where(['uid'=>$uid,'kid'=>$keep_id])->all();
+            if(!$res){
+                return 3;//该收藏夹没有关注
+            }else{
+                $res2 = attention::deleteAll(['uid'=>$uid,'kid'=>$keep_id]);
+                if($res2){
+                    return 1;//取消关注成功
+                }else{
+                    return 2;//取消关注失败
+                }
+            }
+        }
+    }
+
+    //取消关注的人
+    public function actionDel_attention_user()
+    {
+        $tel = $_GET['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $attention_uid = $_GET['attention_uid'];
+        if($uid && $attention_uid){
+            $res = attentionUser::find()->select('id')->where(['uid'=>$uid,'attention_uid'=>$attention_uid])->all();
+            if(!$res){
+                return 3;//该收藏夹没有关注
+            }else{
+                $res2 = attentionUser::deleteAll(['uid'=>$uid,'attention_uid'=>$attention_uid]);
+                if($res2){
+                    return 1;//取消关注成功
+                }else{
+                    return 2;//取消关注失败
+                }
+            }
+        }
+    }
+
+    //关注收藏夹
+    public function actionAdd_attention_keep()
+    {
+        $tel = $_GET['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $keep_id = intval($_GET['keep_id']);
+        if($uid && $keep_id){
+            $res = attention::find()->select('id')->where(['uid'=>$uid,'kid'=>$keep_id])->all();
+            if($res){
+                return 3;//该收藏夹已经添加
+            }else{
+                $res2 = Yii::$app->db->createCommand()
+                    ->insert('tsy_attention',[
+                        'uid' => $uid,
+                        'kid' => $keep_id,
+                        'created_at' => date("Y-m-d H:i:s"),
+                    ])
+                    ->execute();
+                if($res2){
+                    return 1;//添加关注成功
+                }else{
+                    return 2;//添加关注失败
+                }
+            }
+        }
+    }
+
+    //关注用户
+    public function actionAdd_attention_user()
+    {
+        $tel = $_GET['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $attention_uid = $_GET['attention_uid'];
+        if($uid && $attention_uid){
+            $res = attentionUser::find()->select('id')->where(['uid'=>$uid,'attention_uid'=>$attention_uid])->all();
+            if($res){
+                return 3;//该用户已经关注
+            }else{
+                $res2 = Yii::$app->db->createCommand()
+                    ->insert('tsy_attention_user',[
+                        'uid' => $uid,
+                        'attention_uid' => $attention_uid,
+                        'created_at' => date("Y-m-d H:i:s"),
+                    ])
+                    ->execute();
+                if($res2){
+                    return 1;//添加关注成功
+                }else{
+                    return 2;//添加关注失败
+                }
+            }
+        }
     }
 }
 ?>

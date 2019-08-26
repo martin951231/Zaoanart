@@ -47,7 +47,11 @@ $this->params['breadcrumbs'][] = $this->title;
                 'attribute' => 'uid',
                 'format' => 'text',
                 'content' => function($model){
-                    return $model->account->username;
+                    if($model->account['username']){
+                        return $model->account['username'];
+                    }else{
+                        return $model->account['phone'];
+                    }
                 },
             ],
             'created_at',

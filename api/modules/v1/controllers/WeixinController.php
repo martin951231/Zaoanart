@@ -6,9 +6,20 @@ use yii\rest\ActiveController;
 use yii\filters\auth\CompositeAuth;
 use yii\filters\auth\QueryParamAuth;
 use yii\data\ActiveDataProvider;
+use yii\web\Controller;
+use yii\web\NotFoundHttpException;
+use yii\filters\VerbFilter;
+use yii\db\Transaction;
+use yii\web\UploadedFile;
+use yii\imagine\Image;
 use Qiniu\Auth;
+use Qiniu\Storage\UploadManager;
+use yii\data\Pagination;
 use backend\models\goods;
+use api\modules\v1\controllers\PhphashController;
 use backend\models\account;
+use backend\models\attention;
+use backend\models\attentionUser;
 use backend\models\accountChannel;
 use backend\models\category;
 use backend\models\theme;
@@ -309,7 +320,7 @@ class WeixinController extends ActiveController
                 if($color_id == 0){
                     //全空
                     $sql = Goods::find()
-                        ->select('id,image,name,img_width,img_height')
+                        ->select('id,image,name,img_width,img_height,category,theme')
                         ->where(['is_appear' => 1])
                         ->createCommand()
                         ->getRawSql();
@@ -319,7 +330,7 @@ class WeixinController extends ActiveController
                 }else{
                     //颜色不空,其他空
                     $sql = Goods::find()
-                        ->select('id,image,name,img_height')
+                        ->select('id,image,name,img_height,category,theme')
                         ->where(['color'=>$color_id])
                         ->createCommand()
                         ->getRawSql();
@@ -330,7 +341,7 @@ class WeixinController extends ActiveController
                 if($color_id == 0){
                     //颜色和cate空,theme不空
                     $sql = Goods::find()
-                        ->select('id,image,name,img_height')
+                        ->select('id,image,name,img_height,category,theme')
                         ->where(['theme'=>$theme_id])
                         ->createCommand()
                         ->getRawSql();
@@ -339,7 +350,7 @@ class WeixinController extends ActiveController
                 }else{
                     //颜色和theme不空,cate空
                     $sql = Goods::find()
-                        ->select('id,image,name,img_height')
+                        ->select('id,image,name,img_height,category,theme')
                         ->where(['theme'=>$theme_id,'color'=>$color_id])
                         ->createCommand()
                         ->getRawSql();
@@ -362,7 +373,7 @@ class WeixinController extends ActiveController
                             ->all();
                         if(empty($id_arr)){
                             $sql = Goods::find()
-                                ->select('id,image,name,img_height')
+                                ->select('id,image,name,img_height,category,theme')
                                 ->where(['category'=>$cate_id])
                                 ->createCommand()
                                 ->getRawSql();
@@ -377,7 +388,7 @@ class WeixinController extends ActiveController
                             for($i = 0;$i<count($result);$i++){
                                 $condition .= ' or (`category` = '.$result[$i]['id'].')';
                                 $sql = Goods::find()
-                                    ->select('id,image,name,img_height')
+                                    ->select('id,image,name,img_height,category,theme')
                                     ->andWhere(['is_appear'=>1])
                                     ->createCommand()
                                     ->getRawSql();
@@ -387,7 +398,7 @@ class WeixinController extends ActiveController
                         }
                     }else{
                         $sql = Goods::find()
-                            ->select('id,image,name,img_height')
+                            ->select('id,image,name,img_height,category,theme')
                             ->where(['category'=>$cate_id])
                             ->createCommand()
                             ->getRawSql();
@@ -407,7 +418,7 @@ class WeixinController extends ActiveController
                             ->all();
                         if(empty($id_arr)){
                             $sql = Goods::find()
-                                ->select('id,image,name,img_height')
+                                ->select('id,image,name,img_height,category,theme')
                                 ->where(['category'=>$cate_id,'color' => $color_id])
                                 ->createCommand()
                                 ->getRawSql();
@@ -422,7 +433,7 @@ class WeixinController extends ActiveController
                             for($i = 0;$i<count($result);$i++){
                                 $condition .= ' or (`category` = '.$result[$i]['id'].')';
                                 $sql = Goods::find()
-                                    ->select('id,image,name,img_height')
+                                    ->select('id,image,name,img_height,category,theme')
                                     ->where(['color' => $color_id])
                                     ->createCommand()
                                     ->getRawSql();
@@ -432,7 +443,7 @@ class WeixinController extends ActiveController
                         }
                     }else {
                         $sql = Goods::find()
-                            ->select('id,image,name,img_height')
+                            ->select('id,image,name,img_height,category,theme')
                             ->where(['category' => $cate_id, 'color' => $color_id])
                             ->createCommand()
                             ->getRawSql();
@@ -454,7 +465,7 @@ class WeixinController extends ActiveController
                             ->all();
                         if(empty($id_arr)){
                             $sql = Goods::find()
-                                ->select('id,image,name,img_height')
+                                ->select('id,image,name,img_height,category,theme')
                                 ->where(['category'=>$cate_id,'theme' => $theme_id])
                                 ->createCommand()
                                 ->getRawSql();
@@ -469,7 +480,7 @@ class WeixinController extends ActiveController
                             for($i = 0;$i<count($result);$i++){
                                 $condition .= ' or (`category` = '.$result[$i]['id'].')';
                                 $sql = Goods::find()
-                                    ->select('id,image,name,img_height')
+                                    ->select('id,image,name,img_height,category,theme')
                                     ->where(['theme' => $theme_id])
                                     ->createCommand()
                                     ->getRawSql();
@@ -479,7 +490,7 @@ class WeixinController extends ActiveController
                         }
                     }else{
                         $sql = Goods::find()
-                            ->select('id,image,name,img_height')
+                            ->select('id,image,name,img_height,category,theme')
                             ->where(['category' => $cate_id, 'theme' => $theme_id])
                             ->createCommand()
                             ->getRawSql();
@@ -499,7 +510,7 @@ class WeixinController extends ActiveController
                             ->all();
                         if(empty($id_arr)){
                             $sql = Goods::find()
-                                ->select('id,image,name,img_height')
+                                ->select('id,image,name,img_height,category,theme')
                                 ->where(['category'=>$cate_id,'theme' => $theme_id,'color' => $color_id])
                                 ->createCommand()
                                 ->getRawSql();
@@ -514,7 +525,7 @@ class WeixinController extends ActiveController
                             for($i = 0;$i<count($result);$i++){
                                 $condition .= ' or (`category` = '.$result[$i]['id'].')';
                                 $sql = Goods::find()
-                                    ->select('id,image,name,img_height')
+                                    ->select('id,image,name,img_height,category,theme')
                                     ->where(['theme' => $theme_id,'color' => $color_id])
                                     ->createCommand()
                                     ->getRawSql();
@@ -524,7 +535,7 @@ class WeixinController extends ActiveController
                         }
                     }else {
                         $sql = Goods::find()
-                            ->select('id,image,name,img_height')
+                            ->select('id,image,name,img_height,category,theme')
                             ->where(['category' => $cate_id, 'theme' => $theme_id, 'color' => $color_id])
                             ->createCommand()
                             ->getRawSql();
@@ -539,6 +550,8 @@ class WeixinController extends ActiveController
                 $info['image'][] = [
                     'id'=> $res[$i]['id'],
                     'cate_id'=>$cate_id,
+                    'category'=>(int)$res[$i]['category'],
+                    'theme'=>(int)$res[$i]['theme'],
                     'name'=> $res[$i]['name'],
                     'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                     'img_height'=> intval($res[$i]['img_height']),
@@ -568,7 +581,7 @@ class WeixinController extends ActiveController
         Yii::$app->db->createCommand($up_cate_search_sum)->execute();
         if(empty($id_arr)){
             $res = Goods::find()
-                ->select('id,image,name,img_height')
+                ->select('id,image,name,img_height,category,theme')
                 ->where(['category'=>$cate_id])
                 ->andWhere(['or',['<>','category',999],['<>','theme',999]])
                 ->andWhere(['is_appear'=>1])
@@ -585,7 +598,7 @@ class WeixinController extends ActiveController
             for($i = 0;$i<count($result);$i++){
                 $condition .= ' or (`category` = '.$result[$i]['id'].')';
                 $sql = Goods::find()
-                    ->select('id,image,name,img_height')
+                    ->select('id,image,name,img_height,category,theme')
                     ->where(['or',['<>','category',999],['<>','theme',999]])
                     ->andWhere(['is_appear'=>1])
                     ->createCommand()
@@ -600,6 +613,8 @@ class WeixinController extends ActiveController
                 'id'=> intval($res[$i]['id']),
                 'cate_id'=>$cate_id,
                 'name'=> $res[$i]['name'],
+                'category'=> (int)$res[$i]['category'],
+                'theme'=> (int)$res[$i]['theme'],
                 'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                 'img_height'=> intval($res[$i]['img_height']),
 //                'img_height'=> $imgsize[1],
@@ -619,7 +634,7 @@ class WeixinController extends ActiveController
         $up_theme_search_sum = 'UPDATE `tsy_theme` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$theme_id.' ';
         Yii::$app->db->createCommand($up_theme_search_sum)->execute();
         $res = Goods::find()
-            ->select('id,image,name,img_height')
+            ->select('id,image,name,img_height,category,theme')
             ->where(['theme'=>$theme_id])
             ->andWhere(['or',['<>','category',999],['<>','theme',999]])
             ->andWhere(['is_appear'=>1])
@@ -636,6 +651,8 @@ class WeixinController extends ActiveController
                 'id'=> $res[$i]['id'],
                 'theme_id'=>$theme_id,
                 'name'=> $res[$i]['name'],
+                'category'=> (int)$res[$i]['category'],
+                'theme'=> (int)$res[$i]['theme'],
                 'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                 'img_height'=> $res[$i]['img_height'],
 //                'img_height'=> $imgsize[1],
@@ -644,6 +661,44 @@ class WeixinController extends ActiveController
         $info['start'] = $start+$pageSize;
         $infos['data'] = $info;
         $infos['theme_name'] = $theme_name['theme_name'];
+        return $infos;
+    }
+
+    //获取标签图片
+    public function actionGetlabelimg()
+    {
+        $label_id = $_GET['id'];
+        $pageSize = 20;
+        $start = $_GET['start'];
+        $label_name = label::find()->select('label_name')->where(['id'=>$label_id])->one();
+        $up_theme_search_sum = 'UPDATE `tsy_label` SET `search_sum_wechat`=`search_sum_wechat`+1 where `id`='.$label_id.' ';
+        Yii::$app->db->createCommand($up_theme_search_sum)->execute();
+        $res = Goods::find()
+            ->select('id,image,name,img_height,category,theme')
+            ->where(['like','label',','.$label_id.','])
+            ->andWhere(['or',['<>','category',999],['<>','theme',999]])
+            ->andWhere(['is_appear'=>1])
+//            ->indexBy('category')
+            ->orderBy(['id'=>SORT_DESC])
+            ->limit($pageSize)
+            ->offset($start)
+            ->all();
+        for($i=0;$i<count($res);$i++){
+//            $imgsize = getimagesize('http://qiniu.zaoanart.com/'.$res[$i]['image']);
+            $info['image'][] = [
+                'id'=> $res[$i]['id'],
+                'label_id'=>$label_id,
+                'name'=> $res[$i]['name'],
+                'category'=> (int)$res[$i]['category'],
+                'theme'=> (int)$res[$i]['theme'],
+                'image'=> 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
+                'img_height'=> $res[$i]['img_height'],
+//                'img_height'=> $imgsize[1],
+            ];
+        }
+        $info['start'] = $start+$pageSize;
+        $infos['data'] = $info;
+        $infos['label_name'] = $label_name['label_name'];
         return $infos;
     }
 
@@ -688,7 +743,7 @@ class WeixinController extends ActiveController
         $count2 = '';
         for($k=0;$k<count($res3);$k++){
             $label_res[$k] = Goods::find()
-                ->select('id,image,name,img_height')
+                ->select('id,image,name,img_height,category,theme')
                 ->where(['like','label',','.$res3[$k]['id'].','])
                 ->andWhere(['is_appear'=>1])
                 ->orderBy(['id'=>SORT_DESC])
@@ -718,7 +773,7 @@ class WeixinController extends ActiveController
             $condition .= ' AND (`label` not like \'%,'.$res3[$q]['id'].',%\' or `label` is null)';
         }
         $sql = Goods::find()
-            ->select('id,image,name,theme,img_height')
+            ->select('id,image,name,category,theme,img_height')
             ->where(['color' => $color])
             ->orFilterWhere(['like', 'id', $param])
             ->orFilterWhere(['like', 'name', $param])
@@ -754,6 +809,8 @@ class WeixinController extends ActiveController
                 $res4['image'][] = [
                     'id' => $info[$i]['id'],
                     'name' => $info[$i]['name'],
+                    'category'=> (int)$res[$i]['category'],
+                    'theme'=> (int)$res[$i]['theme'],
                     'image' => 'http://qiniu.zaoanart.com/'.$info[$i]['image'].'?imageView2/2/w/500',
                     'img_height'=> intval($info[$i]['img_height']),
 //                    'img_height'=> $imgsize[1],
@@ -798,7 +855,8 @@ class WeixinController extends ActiveController
         $start = $_GET['start'];
         $label_name_str = '';
         $label_name = [];
-        $labels = Goods::find()->select('label')->where(['id'=>$_GET['id']])->one();
+        $id = $_GET['id'];
+        $labels = Goods::find()->select('label')->where(['id'=>$id])->one();
         $label = array_filter(array_values(array_unique(explode(",",$labels['label']))));
         sort($label);
         $label_str = '';
@@ -816,6 +874,8 @@ class WeixinController extends ActiveController
             for($i = 0;$i<count($res);$i++){
                 $res1['image'][] = [
                     'id' => $res[$i]['id'],
+                    'category' => $res[$i]['category'],
+                    'theme' => $res[$i]['theme'],
                     'image' => 'http://qiniu.zaoanart.com/'.$res[$i]['image'].'?imageView2/2/w/500',
                     'img_height' => (int)$res[$i]['img_height'],
                 ];
@@ -831,13 +891,14 @@ class WeixinController extends ActiveController
     }
     function cycles($labels,$label,$may_img_arr)
     {
+        $id = $_GET['id'];
         if(count($label)!=0){
             $label2 = $label;
             $label_str = '';
             for($i = 0; $i < count($label2); $i++){
                 $label_str .= 'and (`label` LIKE "%,'.$label2[$i].',%") ';
             }
-            $may_img_arr1 = Yii::$app->db->createCommand("select `id`,`image`,`img_height` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str)->queryAll();
+            $may_img_arr1 = Yii::$app->db->createCommand("select `id`,`image`,`img_height`,`category`,`theme` from `tsy_goods` where `id` !=".$id." ".$label_str)->queryAll();
             $res = [];
             foreach($may_img_arr as $k=>$v){
                 if(!isset($res[$v['id']])){
@@ -859,13 +920,14 @@ class WeixinController extends ActiveController
     }
     function cycles2($labels,$label,$may_img_arr)
     {
+        $id = $_GET['id'];
         if(count($labels)!=0){
             $label2 = $labels;
             $label_str2 = '';
             for($q = 0; $q < count($label2); $q++){
                 $label_str2 .= 'and (`label` LIKE "%,'.$label2[$q].',%") ';
             }
-            $may_img_arr2 = Yii::$app->db->createCommand("select `id`,`image`,`img_height` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str2)->queryAll();
+            $may_img_arr2 = Yii::$app->db->createCommand("select `id`,`image`,`img_height`,`category`,`theme` from `tsy_goods` where `id` !=".$id." ".$label_str2)->queryAll();
             $res = [];
             foreach($may_img_arr as $k=>$v){
                 if(!isset($res[$v['id']])){
@@ -889,22 +951,54 @@ class WeixinController extends ActiveController
     //获取收藏夹
     public function actionGetkeep()
     {
-        $keep = keep::find()->select('id,keep_name')->where(['status'=>1])->all();
+        $token = $_GET['token'];
+        $attention_keep = [];
+        if($token){
+            $str = strpos($token, '$ZaoAn.u');
+            $uid = intval(substr($token,0,$str));
+            $attention_keep = attention::find()->select('id,kid')->where(['uid'=>$uid])->all();
+        }else{
+            $uid = null;
+        }
+        $keep = keep::find()->select('id,keep_name,uid,img_ratio')->where(['status'=>1])->all();
         if($keep){
             for($i = 0; $i<count($keep);$i++){
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
                 $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
                 for ($k = 0; $k<count($res2[$i]);$k++){
                     $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
                     if($res2[$i][$k]['imgid']){
                         $res[$i][] = [
                             'keep_id' => $keep[$i]['id'],
+                            'uid' => $keep[$i]['uid'],
                             'keep_name' => $keep[$i]['keep_name'],
+                            'img_ratio' => $keep[$i]['img_ratio'],
                             'imgid' => $res2[$i][$k]['imgid'],
+                            'attention_num' => $attention_num,
+                            'is_attention' => 1,//没有关注
                             'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/1/w/200/h/200'
                         ];
                     }
                 }
             }
+            if($attention_keep){
+                for($z=0;$z<count($attention_keep);$z++){
+//                    var_dump($attention_keep[$z]['kid']);
+                    for($x=0;$x<count($res);$x++){
+                        for($c=0;$c<count($res[$x]);$c++){
+                            if($attention_keep[$z]['kid'] == (int)$res[$x][$c]['keep_id']){
+                                $res[$x][$c]['is_attention'] = 2;
+                            }
+                        }
+                    }
+                }
+            }
+//            for($s=0;$s<count($res);$s++){
+//                $num = rand(1,3);
+//                for($d=0;$d<count($res[$s]);$d++){
+//                    $res[$s][$d]['img_ratio'] = $num;
+//                }
+//            }
             sort($res);
             return $res;
         }
@@ -915,30 +1009,57 @@ class WeixinController extends ActiveController
     {
         $keep_id = $_GET['keep_id'];
         $pageSize = 20;
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $user_id = intval(substr($token,0,$str));
         $start = $_GET['start'];
+        $uid = Keep::find()->select('uid,heat')->where(['id'=>$keep_id])->one();
+        $heat = Keep::updateAll(['heat'=>(int)$uid['heat']+1],['id'=>$keep_id]);
+        $icon = account::find()->select('icon')->where(['id'=>$uid['uid']])->one();
         $good_id = Keepimage::find()
             ->select('imgid')
             ->where(['kid'=>$keep_id])
             ->limit($pageSize)
             ->offset($start)
             ->all();
+        $count = Keepimage::find()
+            ->select('imgid')
+            ->where(['kid'=>$keep_id])
+            ->count();
         for($i=0;$i<count($good_id);$i++){
             $res = Goods::find()
-                ->select('id,image,name,img_height')
+                ->select('id,image,name,img_height,category,theme')
                 ->where(['id'=>$good_id[$i]['imgid']])
                 ->andWhere(['is_appear'=>1])
                 ->one();
             if($res){
                 $info['image'][] = [
                     'id'=> $res['id'],
+                    'category'=> $res['category'],
+                    'theme'=> $res['theme'],
                     'image'=> 'http://qiniu.zaoanart.com/'.$res['image'],
                     'name'=> $res['name'],
                     'img_height'=> (int)$res['img_height'],
-                    'checked'=>false
+                    'checked'=>false,
                 ];
             }
         }
+        $is_attention = false;
+        if($user_id){
+            $attention = attention::find()->select('id')->where(['uid'=>$user_id,'kid'=>$keep_id])->all();
+            if($attention){
+                $is_attention = true;
+            }else{
+                $is_attention = false;
+            }
+        }
+        $attention_num = attention::find()->select('id')->where(['kid'=>$keep_id])->count();
         $info['start'] = $start+$pageSize;
+        $info['count'] = $count;
+        $info['is_attention'] = $is_attention;
+        $info['attention_num'] = (int)$uid['heat'];
+//        $info['icon'] = 'http://qiniu.zaoanart.com/'.$icon['icon'];
+        $info['icon'] = 'http://www.zaoanart.com:8000/userIcon/'.$icon['icon'];
         return $info;
     }
 
@@ -1112,11 +1233,14 @@ class WeixinController extends ActiveController
             $res = Keep::find()->select('id,keep_name,heat')->where(['uid'=>$uid])->all();
             if($res){
                 for($i=0;$i<count($res);$i++){
+                    $img = Keepimage::find()->select('imgid')->where(['kid'=>$res[$i]['id']])->orderBy(['id'=>SORT_DESC])->one();
+                    $img_url = goods::find()->select('image')->where(['id'=>$img['imgid']])->one();
                     $info[] = [
                         'uid'=>$uid,
                         'id'=>$res[$i]['id'],
                         'keep_name'=>$res[$i]['keep_name'],
                         'heat'=>$res[$i]['heat'],
+                        'image'=>'http://qiniu.zaoanart.com/'.$img_url['image'].'?imageView2/2/h/100'
                     ];
                 }
                 return $info;
@@ -1161,34 +1285,117 @@ class WeixinController extends ActiveController
         $token = $_GET['token'];
         $str = strpos($token, '$ZaoAn.u');
         $uid = intval(substr($token,0,$str));
-        $keep = keep::find()->select('id,keep_name')->where(['uid'=>$uid])->all();
+        $keep = keep::find()->select('id,keep_name,img_ratio,heat')->where(['uid'=>$uid])->all();
         $res = [];
         if($keep){
             for($i = 0; $i<count($keep);$i++){
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
                 $res2 = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->all();
-                if(!$res2){
+                if(count($res2)<=0){
                     $res[$i][] = [
                         'keep_id' => $keep[$i]['id'],
                         'keep_name' => $keep[$i]['keep_name'],
+                        'img_ratio' => '1',
+                        'attention_num' => $attention_num,
+                        'heat' => $keep[$i]['heat'],
                         'imgid' => '',
                         'image' => ''
                     ];
-                }
-                for ($k = 0; $k<count($res2);$k++){
-                    $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$k]['imgid']])->one();
-                    if($res2[$k]['imgid']){
-                        $res[$i][] = [
-                            'keep_id' => $keep[$i]['id'],
-                            'keep_name' => $keep[$i]['keep_name'],
-                            'imgid' => $res2[$k]['imgid'],
-                            'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/1/w/200/h/200'
-                        ];
+                }else{
+                    for ($k = 0; $k<count($res2);$k++){
+                        $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$k]['imgid']])->one();
+                        if($res2[$k]['imgid']){
+                            $res[$i][] = [
+                                'keep_id' => $keep[$i]['id'],
+                                'keep_name' => $keep[$i]['keep_name'],
+                                'img_ratio' => $keep[$i]['img_ratio'],
+                                'attention_num' => $attention_num,
+                                'heat' => $keep[$i]['heat'],
+                                'imgid' => $res2[$k]['imgid'],
+                                'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/2/h/200'
+                            ];
+                        }
                     }
                 }
             }
+//            for($s=0;$s<count($res);$s++){
+//                $num = rand(1,3);
+//                for($d=0;$d<count($res[$s]);$d++){
+//                    $res[$s][$d]['img_ratio'] = $num;
+//                }
+//            }
             sort($res);
             return $res;
         }
+    }
+
+    //获取用户名和头像
+    public function actionGetusername()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $username = account::find()->select('username,icon')->where(['id'=>$uid])->one();
+        $my_attention = attention::find()->select('id,kid,uid')->where(['uid'=>$uid])->count();
+        $attention_user = attentionUser::find()->select('id')->where(['uid'=>$uid])->count();
+        $info = [
+            'username'=>$username['username'],
+//            'icon'=>'http://qiniu.zaoanart.com/'.$username['icon'],
+            'icon'=>'http://www.zaoanart.com:8000/userIcon/'.$username['icon'],
+            'my_attention'=>$my_attention,
+            'attention_user_num'=>$attention_user,
+            'uid'=>$uid
+        ];
+        return $info;
+    }
+
+    //获取用户名和头像
+    public function actionGetusername3()
+    {
+        $uid = $_GET['uid'];
+        $username = account::find()->select('username,icon')->where(['id'=>$uid])->one();
+        $my_attention = attention::find()->select('id,kid,uid')->where(['uid'=>$uid])->count();
+        $attention_user = attentionUser::find()->select('id')->where(['uid'=>$uid])->count();
+        $info = [
+            'username'=>$username['username'],
+//            'icon'=>'http://qiniu.zaoanart.com/'.$username['icon'],
+            'icon'=>'http://www.zaoanart.com:8000/userIcon/'.$username['icon'],
+            'my_attention'=>$my_attention,
+            'attention_user_num'=>$attention_user,
+            'uid'=>$uid
+        ];
+        return $info;
+    }
+
+    //获取用户名和头像
+    public function actionGetusername2()
+    {
+        $attention_uid = intval($_GET['attention_uid']);
+        $is_attention_user = 1;
+        $attention_keep_num = 0;
+        if($_GET['token']){
+            $token = $_GET['token'];
+            $str = strpos($token, '$ZaoAn.u');
+            $user_id = intval(substr($token,0,$str));
+            $attention_user = attentionUser::find()->select('id')->where(['uid'=>$user_id,'attention_uid'=>$attention_uid])->all();
+            if($attention_user){
+                $is_attention_user = 2;//已经关注
+            }else{
+                $is_attention_user = 1;//未关注
+            }
+        }
+        $username = account::find()->select('username,icon')->where(['id'=>$attention_uid])->one();
+        $my_attention = attention::find()->select('id,kid,uid')->where(['uid'=>$attention_uid])->count();
+        $attention_user_num = attentionUser::find()->select('id')->where(['uid'=>$attention_uid])->count();
+        $info = [
+            'username'=>$username['username'],
+//            'icon'=>'http://qiniu.zaoanart.com/'.$username['icon'],
+            'icon'=>'http://www.zaoanart.com:8000/userIcon/'.$username['icon'],
+            'my_attention'=>$my_attention,
+            'is_attention_user'=>$is_attention_user,
+            'attention_user_num'=>$attention_user_num
+        ];
+        return $info;
     }
 
     //添加收藏夹
@@ -1205,7 +1412,9 @@ class WeixinController extends ActiveController
         $res = Yii::$app->db->createCommand()
             ->insert('tsy_keep',[
                 'uid' => $uid,
-                'keep_name' => $keep_name
+                'keep_name' => $keep_name,
+                'created_at'=>date("Y-m-d H:i:s"),
+                'img_ratio'=>$num = rand(1,3),
             ])
             ->execute();
         $kid = Yii::$app->db->getLastInsertId();
@@ -1268,6 +1477,34 @@ class WeixinController extends ActiveController
                         'id'=>$res[$i]['id'],
                         'keep_name'=>$res[$i]['keep_name'],
                         'heat'=>$res[$i]['heat'],
+                    ];
+                }
+                return $info;
+            }else{
+                return 1;//暂无收藏夹
+            }
+        }
+    }
+
+    //获取用户收藏夹3
+    public function actionGetukeeps()
+    {
+        $keep_id = intval($_GET['keep_id']);
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        if($uid){
+            $res = Keep::find()->select('id,keep_name,heat')->where(['uid'=>$uid])->andWhere(['<>','id',$keep_id])->all();
+            if($res){
+                for($i=0;$i<count($res);$i++){
+                    $img = Keepimage::find()->select('imgid')->where(['kid'=>$res[$i]['id']])->orderBy(['id'=>SORT_DESC])->one();
+                    $img_url = goods::find()->select('image')->where(['id'=>$img['imgid']])->one();
+                    $info[] = [
+                        'uid'=>$uid,
+                        'id'=>$res[$i]['id'],
+                        'keep_name'=>$res[$i]['keep_name'],
+                        'heat'=>$res[$i]['heat'],
+                        'image' => 'http://qiniu.zaoanart.com/'.$img_url['image'].'?imageView2/2/h/100'
                     ];
                 }
                 return $info;
@@ -1425,6 +1662,7 @@ class WeixinController extends ActiveController
                     'username'=>$tel,
                     'phone'=>$tel,
                     'password'=>md5(123456),
+                    'icon'=>'default_icon.jpg'
                 ])
                 ->execute();
             $uid = Yii::$app->db->getLastInsertId();
@@ -1504,6 +1742,496 @@ class WeixinController extends ActiveController
                 ])
                 ->execute();
         }
+    }
+
+    //三级页添加收藏获取分类和主题
+    public function actionGetcate_theme()
+    {
+        $category = $_GET['category'];
+        $theme = $_GET['theme'];
+        $res = category::find()->select('category_name')->where(['id'=>$category])->one();
+        $res2 = theme::find()->select('theme_name')->where(['id'=>$theme])->one();
+        $info = [
+            'category_name' => $res['category_name'],
+            'theme_name' => $res2['theme_name'],
+        ];
+        return $info;
+    }
+
+    //三级页获取图片标签
+    public function actionGetimglabel()
+    {
+        $id = $_GET['id'];
+        $res = goods::find()
+            ->select('label')
+            ->where(['id'=>$id])
+            ->one();
+        $res_arr =  explode(",",$res['label']);
+        $res_arr = array_filter($res_arr);
+        sort($res_arr);
+        $label_names = [];
+        for($i=0;$i<count($res_arr);$i++){
+            $lebrl_name = label::find()->select('id,label_name')->where(['id'=>$res_arr[$i]])->one();
+            $label_names[] = [
+                'id' => $lebrl_name['id'],
+                'label_name' => $lebrl_name['label_name'],
+            ];
+        }
+        return $label_names;
+    }
+
+    //添加关注
+    public function actionAdd_attention()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $keep_id = intval($_GET['keep_id']);
+        if($uid && $keep_id){
+            $res = attention::find()->select('id')->where(['uid'=>$uid,'kid'=>$keep_id])->all();
+            if($res){
+                return 3;//该收藏夹已经添加
+            }else{
+                $res2 = Yii::$app->db->createCommand()
+                    ->insert('tsy_attention',[
+                        'uid' => $uid,
+                        'kid' => $keep_id,
+                        'created_at' => date("Y-m-d H:i:s"),
+                    ])
+                    ->execute();
+                if($res2){
+                    return 1;//添加关注成功
+                }else{
+                    return 2;//添加关注失败
+                }
+            }
+        }
+    }
+
+    //取消关注
+    public function actionDel_attention()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $keep_id = intval($_GET['keep_id']);
+        if($uid && $keep_id){
+            $res = attention::find()->select('id')->where(['uid'=>$uid,'kid'=>$keep_id])->all();
+            if(!$res){
+                return 3;//该收藏夹没有关注
+            }else{
+                $res2 = attention::deleteAll(['uid'=>$uid,'kid'=>$keep_id]);
+                if($res2){
+                    return 1;//取消关注成功
+                }else{
+                    return 2;//取消关注失败
+                }
+            }
+        }
+    }
+
+    //获取当前用户的收藏夹
+    public function actionGetcurrentkeep()
+    {
+        $current_uid = $_GET['uid'];
+        $token = $_GET['token'];
+        $attention_keep = [];
+        $username = account::find()->select('username')->where(['id'=>$current_uid])->one();
+        $keep = keep::find()->select('id,keep_name,uid,img_ratio')->where(['uid'=>$current_uid])->all();
+        if($token){
+            $str = strpos($token, '$ZaoAn.u');
+            $uid = intval(substr($token,0,$str));
+            $attention_keep = attention::find()->select('id,kid')->where(['uid'=>$uid])->all();
+        }else{
+            $uid = null;
+        }
+        if($keep){
+            for($i = 0; $i<count($keep);$i++){
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
+                for ($k = 0; $k<count($res2[$i]);$k++){
+                    $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
+                    if($res2[$i][$k]['imgid']){
+                        $res[$i][] = [
+                            'keep_id' => $keep[$i]['id'],
+                            'uid' => $keep[$i]['uid'],
+                            'username' => $username['username'],
+                            'keep_name' => $keep[$i]['keep_name'],
+                            'img_ratio' => $keep[$i]['img_ratio'],
+                            'imgid' => $res2[$i][$k]['imgid'],
+                            'attention_num' => $attention_num,
+                            'is_attention' => 1,//没有关注
+                            'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/1/w/200/h/200'
+                        ];
+                    }
+                }
+            }
+            if($attention_keep){
+                for($z=0;$z<count($attention_keep);$z++){
+                    for($x=0;$x<count($res);$x++){
+                        for($c=0;$c<count($res[$x]);$c++){
+                            if($attention_keep[$z]['kid'] == (int)$res[$x][$c]['keep_id']){
+                                $res[$x][$c]['is_attention'] = 2;
+                            }
+                        }
+                    }
+                }
+            }
+            sort($res);
+            return $res;
+        }
+    }
+
+    //获取我关注的收藏夹
+    public function actionGetmyfocus()
+    {
+//        $token = $_GET['token'];
+//        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval($_GET['uid']);
+        $attention_keep = attention::find()->select('id,kid,uid')->where(['uid'=>$uid])->all();
+        $attention_num = count($attention_keep);
+        if($attention_keep){
+            for($i = 0; $i<count($attention_keep);$i++){
+                $res2 = keepimage::find()->select('id,imgid')->where(['kid'=>$attention_keep[$i]['kid']])->limit(4)->all();
+                $keep = keep::find()->select('id,keep_name,uid,img_ratio,heat')->where(['id'=>$attention_keep[$i]['kid']])->one();
+                if(count($res2)<=0){
+                    $res[$i][] = [
+                        'keep_id' => $attention_keep[$i]['kid'],
+                        'keep_name' => $keep['keep_name'],
+                        'uid'=>$keep['uid'],
+                        'img_ratio' => '1',
+                        'attention_num' => $attention_num,
+                        'heat' => $keep['heat'],
+                        'imgid' => '',
+                        'is_attention'=>2,
+                        'image' => ''
+                    ];
+                }else{
+                    for ($k = 0; $k<count($res2);$k++){
+                        $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$k]['imgid']])->one();
+                        if($res2[$k]['imgid']){
+                            $res[$i][] = [
+                                'keep_id' => $attention_keep[$i]['kid'],
+                                'keep_name' => $keep['keep_name'],
+                                'img_ratio' => $keep['img_ratio'],
+                                'uid'=>$keep['uid'],
+                                'attention_num' => $attention_num,
+                                'heat' => $keep['heat'],
+                                'imgid' => $res2[$k]['imgid'],
+                                'is_attention'=>2,
+                                'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/2/h/200'
+                            ];
+                        }
+                    }
+                }
+            }
+            sort($res);
+            return $res;
+        }
+    }
+
+    //关注用户
+    public function actionAdd_attention_user()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $attention_uid = $_GET['uid'];
+        if($uid && $attention_uid){
+            $res = attentionUser::find()->select('id')->where(['uid'=>$uid,'attention_uid'=>$attention_uid])->all();
+            if($res){
+                return 3;//该用户已经关注
+            }else{
+                $res2 = Yii::$app->db->createCommand()
+                    ->insert('tsy_attention_user',[
+                        'uid' => $uid,
+                        'attention_uid' => $attention_uid,
+                        'created_at' => date("Y-m-d H:i:s"),
+                    ])
+                    ->execute();
+                if($res2){
+                    return 1;//添加关注成功
+                }else{
+                    return 2;//添加关注失败
+                }
+            }
+        }
+    }
+
+    //取消关注用户
+    public function actionDel_attention_user()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $attention_uid = $_GET['uid'];
+        if($uid && $attention_uid){
+            $res = attentionUser::find()->select('id')->where(['uid'=>$uid,'attention_uid'=>$attention_uid])->all();
+            if(!$res){
+                return 3;//该收藏夹没有关注
+            }else{
+                $res2 = attentionUser::deleteAll(['uid'=>$uid,'attention_uid'=>$attention_uid]);
+                if($res2){
+                    return 1;//取消关注成功
+                }else{
+                    return 2;//取消关注失败
+                }
+            }
+        }
+    }
+
+    //获取关注的人
+    public function actionGetattentionuser()
+    {
+        $uid = (int)$_GET['uid'];
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $user_id = intval(substr($token,0,$str));
+        $res = attentionUser::find()->select('id,attention_uid')->where(['uid'=>$uid])->all();
+        $user_info = [];
+        for($i=0;$i<count($res);$i++){
+            $res2 = account::find()->select('id,username,icon')->where(['id'=>$res[$i]['attention_uid']])->one();
+            $attention_keep = attention::find()->select('id')->where(['uid'=>$res2['id']])->count();
+            $attention_user = attentionUser::find()->select('id')->where(['uid'=>$res2['id']])->count();
+            $is_attention = attentionUser::find()->select('id')->where(['uid'=>$user_id,'attention_uid'=>$res2['id']])->all();
+            if($is_attention){
+                $is_attentions = true;
+            }else{
+                $is_attentions = false;
+            }
+            $user_info[] = [
+                'user_id'=>$uid,
+                'uid'=>$res2['id'],
+                'username'=>$res2['username'],
+                'attention_keep'=>$attention_keep,
+                'attention_user'=>$attention_user,
+                'is_attention'=>$is_attentions,
+//                'image'=>'http://qiniu.zaoanart.com/'.$res2['icon'],
+                'image'=>'http://www.zaoanart.com:8000/userIcon/'.$res2['icon'],
+            ];
+        }
+        return $user_info;
+    }
+
+    //修改用户昵称
+    public function actionEdit_username()
+    {
+        $token = $_GET['token'];
+        $str = strpos($token, '$ZaoAn.u');
+        $uid = intval(substr($token,0,$str));
+        $username = $_GET['username'];
+        $res = account::find()->select('username')->where(['id'=>$uid])->one();
+        if($res['username'] == $username){
+            return 1;//昵称重复
+        }else{
+            $res2 = account::updateAll(['username' => $username], ['id'=>$uid]);
+            if($res2){
+                return 2;//修改成功
+            }else{
+                return 3;//修改失败
+            }
+        }
+    }
+
+    //上传头像
+    public function actionEdit_img()
+    {
+        $file = $_FILES['file'];
+        $up_path = Yii::getAlias('@backend').'\web\userIcon';
+        $up_error = $file['error'];
+        $up_size = $file['size'];
+        $up_tmp_name = $file['tmp_name'];
+        $up_name = $file['name'];
+        $up_type = $file['type'];
+        $uid = $_POST['uid'];
+        if($up_error>0){
+            switch($up_info['error']){
+                case 1:
+                    $err_info="上传的文件超过了 php.ini 中 upload_max_filesize 选项限制的值";
+                    break;
+                case 2:
+                    $err_info="上传文件的大小超过了 HTML 表单中 MAX_FILE_SIZE 选项指定的值";
+                    break;
+                case 3:
+                    $err_info="文件只有部分被上传";
+                    break;
+                case 4:
+                    $err_info="没有文件被上传";
+                    break;
+                case 6:
+                    $err_info="找不到临时文件夹";
+                    break;
+                case 7:
+                    $err_info="文件写入失败";
+                    break;
+                default:
+                    $err_info="未知的上传错误";
+                    break;
+            }
+            return $err_info;
+        }
+        if($up_size>100000){
+                return 3;
+        }
+        $exten_name=pathinfo($up_name,PATHINFO_EXTENSION);
+        $new_name = 'icon_'.$uid.'.'.$exten_name;
+        $up_to_path = $up_path.'\\'.$new_name;
+        if(is_uploaded_file($up_tmp_name)){
+//            if(file_exists($up_to_path)){
+//                unlink($up_to_path);
+//            }
+            if(move_uploaded_file($up_tmp_name,$up_to_path)){
+                $res = account::updateAll(['icon'=>$new_name], ['id'=>$uid]);
+                return 1;//上传成功
+            }else{
+                return 2;//上传失败
+            }
+        }
+    }
+
+    //上传头像
+    public function actionUp_icon()
+    {
+        $up_tmp_name = $_GET['up_tmp_name'];
+        $up_path = $_GET['up_path'];
+        $exten_name = $_GET['exten_name'];
+        $uid = $_GET['uid'];
+        $new_name = 'icon_'.$uid.'.'.$exten_name;
+        $up_to_path = $up_path.'\\'.$new_name;
+        if(file_exists($up_to_path)){
+            unlink($up_to_path);
+        }
+        if(move_uploaded_file($up_tmp_name,$up_to_path)){
+            return 1;//上传成功
+        }else{
+            return 2;//上传失败
+        }
+    }
+
+    //验证客服消息token
+    public function actionVeritytoken()
+    {
+//        $signature = $_GET["signature"];
+//        $timestamp = $_GET["timestamp"];
+//        $nonce = $_GET["nonce"];
+//        $token = 'zaoanart2945296672';  //TOKEN 写自己在微信平台填入的token
+//        $tmpArr = array($token,$timestamp,$nonce);
+//        sort($tmpArr,SORT_STRING);
+//        $tmpStr = implode($tmpArr);
+//        $tmpStr = sha1($tmpStr);
+//        $echoStr = $_GET['echostr'];
+//        if( $tmpStr == $signature ){
+//            echo $echoStr;
+////            return true;
+//        }else{
+//            return false;
+//        }
+        $postStr = file_get_contents('php://input');
+        if (!empty($postStr) && is_string($postStr)) {
+            $postArr = json_decode($postStr, true);
+            $fromUsername = $postArr['FromUserName'];   //发送者openid
+            if (!empty($postArr['MsgType']) && in_array($postArr['MsgType'], array("text", "image"))) {
+                //若用户反馈的是图片消息
+                if($postArr['MsgType'] == "image"){
+                    //微信输出的是二进制图片流，不支持小程序外部使用后，所以需要保存到自己服务。
+                    self::send_message($fromUsername, "text", "您好,很高兴为您服务!下单系统正在建设中,下单请添加官方QQ:2945296672,或者联系电话:18964563738。");
+                }else{
+                    //文字消息
+                    $content = $postArr['Content'];
+                    self::send_message($fromUsername, "text", "您好,很高兴为您服务!下单系统正在建设中,下单请添加官方QQ:2945296672,或者联系电话:18964563738。");
+                }
+                //记录客服消息到数据库,同事发邮箱通知运营同事,根据个人具体业务做相应处理;
+                // ....
+
+            } else {//用户进入到客服消息页面
+                self::send_message($fromUsername, "text", "您好,很高兴为您服务!下单系统正在建设中,下单请添加官方QQ:2945296672,或者联系电话:18964563738。");
+            }
+        }
+        echo "success";
+        exit;
+    }
+
+    //回复微信客服消息
+    public function send_message($fromUsername, $msgType, $content)
+    {
+        $data = array(
+            "touser" => $fromUsername,
+            "msgtype" => $msgType,
+            "text" => array("content" => $content)
+        );
+        $json = self::json_encode($data);  //兼容php5.4以下json格式处理
+        $appid = "wxa0a3e0beee9f0e98";
+        $secret = "76bc2ec854b8de862ffc94a2676839ba";
+        $access_token = self::get_access_token($appid, $secret);
+        /*
+        * POST发送https请求客服接口api
+        */
+        $url = "https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=" . $access_token;
+        //以'json'格式发送post的https请求
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_POST, 1); // 发送一个常规的Post请求
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, FALSE);
+        if (!empty($json)) {
+            curl_setopt($curl, CURLOPT_POSTFIELDS, $json);
+        }
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        //curl_setopt($curl, CURLOPT_HTTPHEADER, $headers );
+        $output = curl_exec($curl);
+        curl_close($curl);
+        return $output;
+    }
+
+    public  function get_access_token($appId = '', $appSecret = ''){
+        $url = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=$appId&secret=$appSecret";
+        $result = file_get_contents($url);
+        $result = json_decode($result,true);
+        $accesstoken = $result['access_token'];
+        return $accesstoken;
+    }
+
+    //json中文处理
+    function json_encode($array)
+    {
+        if (version_compare(PHP_VERSION, '5.4.0', '<')) {
+            $str = json_encode($array);
+            $str = preg_replace_callback("#\\\u([0-9a-f]{4})#i", function ($matchs) {
+                return iconv('UCS-2BE', 'UTF-8', pack('H4', $matchs[1]));
+            }, $str);
+            return $str;
+        } else {
+            return json_encode($array, JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    //根据图片相似度搜索1.生成图片代码
+    public function actionSearch_like()
+    {
+        $file = $_FILES['file'];
+        $up_error = $file['error'];
+        $up_size = $file['size'];
+        $up_tmp_name = $file['tmp_name'];
+        $up_name = $file['name'];
+        $up_type = $file['type'];
+        $phphash = new PhphashController(null,null);
+        $max_id = Goods::find()->select('id')->orderBy(['id'=>SORT_DESC])->one();
+        $num = 0;
+        for($i=91;$i<1500;$i++){
+            if(count($num)>=50){
+                break;
+            }
+            $hash_str = Goods::find()->select('hash_str')->where(['id'=>$i])->one();
+            $res = $phphash->Isimagefilesimilar($up_tmp_name,$hash_str['hash_str']);
+//            var_dump($hash_str);die;
+            if($res){
+                $info[] = [
+                   'id' => $i
+                ] ;
+                $num++;
+            }
+        }
+        var_dump($info);die;
     }
 
     //更新数据库数据

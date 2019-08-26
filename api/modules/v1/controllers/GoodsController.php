@@ -423,7 +423,7 @@ class GoodsController extends ActiveController
             $theme_name = theme::find()->select('theme_name')->where(['id'=>$theme_id])->one();
             $theme_name = $theme_name['theme_name'];
         }
-        if(!$search){
+        if(!$search && $search != 'null' && $search != 'undefined'){
             $cate_res = null;
             $theme_res = null;
         }else{
