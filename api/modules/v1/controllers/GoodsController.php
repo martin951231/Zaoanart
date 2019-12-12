@@ -6,11 +6,14 @@ use yii\rest\ActiveController;
 use yii\filters\auth\CompositeAuth;
 use yii\filters\auth\QueryParamAuth;
 use yii\data\ActiveDataProvider;
+use api\Qiniu\Auth;
+use api\Qiniu\Storage\UploadManager;
 use backend\models\goods;
 use backend\models\category;
 use backend\models\color;
 use backend\models\contrast;
 use backend\models\theme;
+use backend\models\filterimg;
 use backend\models\account;
 use backend\models\label;
 use backend\models\Shopcar;
@@ -30,7 +33,7 @@ class GoodsController extends ActiveController
         return $actions;
     }
     public function actionFindimage(){
-        $res = Goods::find()->select('id,image,name')->limit(8)->orderBy(['created_at' => SORT_DESC,])->all();
+        $res = Goods::find()->select('id,image,name')->limit(8)->where(['is_appear'=>1])->orderBy(['created_at' => SORT_DESC,])->all();
         return $res;
     }
     public function actionFindgoodsa(){
@@ -1407,7 +1410,7 @@ class GoodsController extends ActiveController
             for($i = 0; $i < count($label2); $i++){
                 $label_str .= 'and (`label` LIKE "%,'.$label2[$i].',%") ';
             }
-            $may_img_arr1 = Yii::$app->db->createCommand("select `id`,`image`,`category` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str."")->queryAll();
+            $may_img_arr1 = Yii::$app->db->createCommand("select `id`,`image`,`category` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str." and `is_appear`=1")->queryAll();
             $res = [];
             foreach($may_img_arr as $k=>$v){
                 if(!isset($res[$v['id']])){
@@ -1441,7 +1444,7 @@ class GoodsController extends ActiveController
             for($q = 0; $q < count($label2); $q++){
                 $label_str2 .= 'and (`label` LIKE "%,'.$label2[$q].',%") ';
             }
-            $may_img_arr2 = Yii::$app->db->createCommand("select `id`,`image`,`category` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str2."")->queryAll();
+            $may_img_arr2 = Yii::$app->db->createCommand("select `id`,`image`,`category` from `tsy_goods` where `id` !=".$_GET['id']." ".$label_str2." and `is_appear`=1")->queryAll();
             $res = [];
             foreach($may_img_arr as $k=>$v){
                 if(!isset($res[$v['id']])){
@@ -1678,26 +1681,196 @@ class GoodsController extends ActiveController
         $res = Goods::find()->select('image')->where(['is_login'=>1])->all();
         $num = rand(0,count($res)-1);
         $img = $res[$num]['image'];
-        $ch = curl_init();
-        $url = 'http://qiniu.zaoanart.com/'.$img.'?imageInfo';
-        curl_setopt($ch, CURLOPT_URL,$url);
-        // 执行后不直接打印出来
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HEADER, false);
-        // 跳过证书检查
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        // 不从证书中检查SSL加密算法是否存在
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        //执行并获取HTML文档内容
-        $output = json_decode(curl_exec($ch));
-        //释放curl句柄
-        curl_close($ch);
+//        $ch = curl_init();
+//        $url = 'http://qiniu.zaoanart.com/'.$img.'?imageInfo';
+//        curl_setopt($ch, CURLOPT_URL,$url);
+//        // 执行后不直接打印出来
+//        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+//        curl_setopt($ch, CURLOPT_HEADER, false);
+//        // 跳过证书检查
+//        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+//        // 不从证书中检查SSL加密算法是否存在
+//        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+//        //执行并获取HTML文档内容
+//        $output = json_decode(curl_exec($ch));
+//        //释放curl句柄
+//        curl_close($ch);
         $img_info = [
             'img_name' =>  $img,
-            'width' =>  $output->width,
-            'height' =>  $output->height,
+//            'width' =>  $output->width,
+//            'height' =>  $output->height,
         ];
         return $img_info;
+    }
+
+    //上传带特效的图片
+    public function actionUpfilterimg()
+    {
+        $image = $_POST['img_url'];
+        $img_size = intval($_POST['img_size']);
+        $img_width = intval($_POST['img_width']);
+        $img_height = intval($_POST['img_height']);
+        // 去除base64,
+        $num = strpos($image,',');
+        $image = substr($image, $num+1);
+        $str= isset($image)?$image:false;
+
+        $ak = 'mSlTl2-S30-y-d6BVAVQWx0eh_GHGvmMutQkulCk';
+        $sk = 'Yjq9vpfthYcVXeIeGRWKmhp0J4xuvxgp6SN5YVD5';
+        $bucket = 'zaoanart';
+        $time = time()+60*60;
+        $new_name = date('YmdHis'.rand(0,999999)).'filter.jpg';
+        $body = [
+            'key' => "$(key)",
+            'hash' => "$(etag)",
+            'img_name' => $new_name,
+            'new_name' => $new_name,
+            'w' => '$(imageInfo.width)',
+            'h' => '$(imageInfo.height)'
+        ];
+        $putPolicy = [
+            'scope ' => $new_name,
+            "saveKey"=> $new_name,
+            'deadline' => $time,
+            'returnBody' => json_encode($body)
+        ];
+        $auth = new auth($ak,$sk);
+        $token = $auth->uploadToken($bucket,null,3600,$putPolicy);
+        $uploadToken_json = [
+            'uptoken' => $token,
+            'img_name' => $new_name,
+            'img_width' => $img_width,
+            'img_height' => $img_height
+        ];
+        return $uploadToken_json;
+    }
+
+    //上传滤镜图添加数据库
+    public function actionUpfilterimg2()
+    {
+        if(!$_GET['tel']){
+            return 1;//用户不存在或者禁止登陆
+        }else{
+            $tel = $_GET['tel'];
+            $imgid = $_GET['imgid'];
+            $img_name = $_GET['img_name'];
+            $img_width = intval($_GET['img_width']);
+            $img_height = intval($_GET['img_height']);
+            $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+            $uid = $user['id'];
+        }
+        $brightness = $_GET['brightness'];
+        $contrast = $_GET['contrast'];
+        $grayscale = $_GET['grayscale'];
+        $saturate = $_GET['saturate'];
+        $blurval = $_GET['blurval'];
+        $opacity = $_GET['opacity'];
+        $huerotate = $_GET['huerotate'];
+        $invert = $_GET['invert'];
+        $rotate = $_GET['rotate'];
+        $_GET['symmeentry_X']=='true'?$symmeentry_X = 1:$symmeentry_X = 0;
+        $_GET['symmeentry_Y']=='true'?$symmeentry_Y = 1:$symmeentry_Y = 0;
+        $res = Yii::$app->db->createCommand()
+            ->insert('tsy_filterimg',[
+                'uid' => $uid,
+                'imgid'=>$imgid,
+                'created_at'=>date("Y-m-d H:i:s"),
+                'creates_at'=>date("Y-m-d"),
+                'filter_img'=>$img_name,
+                'img_width'=>$img_width,
+                'img_height'=>$img_height,
+                'brightness'=>$brightness,
+                'contrast'=>$contrast,
+                'grayscale'=>$grayscale,
+                'saturate'=>$saturate,
+                'blurval'=>$blurval,
+                'opacity'=>$opacity,
+                'huerotate'=>$huerotate,
+                'invert'=>$invert,
+                'rotate'=>$rotate,
+                'symmeentry_X'=>$symmeentry_X,
+                'symmeentry_Y'=>$symmeentry_Y
+            ])
+            ->execute();
+        if($res){
+            return 2;
+        }
+    }
+
+    //获取用户调整过的图片
+    public function actionGetfilter()
+    {
+        if(!$_GET['tel'] || !$_GET['imgid']){
+            return 1;//没有参数
+        }
+        $tel = $_GET['tel'];
+        $imgid = $_GET['imgid'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $filter_info = filterimg::find()->select('imgid,filter_img,created_at,img_width,img_height')->where(['uid'=>$uid,'imgid'=>$imgid])->orderBy(['created_at'=>SORT_DESC])->all();
+        return $filter_info;
+    }
+
+    //获取跳转小程序三级页的二维码
+    public function actionGet_qrcode()
+    {
+        $path = Yii::getAlias('@backend').'\web\test\\';
+        $img_id = intval($_GET['img_id']);
+//        header("Content-type:image/jpeg;charset=UTF-8");
+        header('content-type:text/html;charset=utf-8');
+        //配置APPID、APPSECRET
+        $APPID = "wxa0a3e0beee9f0e98";
+        $APPSECRET =  "76bc2ec854b8de862ffc94a2676839ba";
+        //获取access_token
+        $access_token = "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=$APPID&secret=$APPSECRET";
+        if (!session_id()) session_start();
+        $ACCESS_TOKEN = "";
+        if(!isset($_SESSION['access_token']) || (isset($_SESSION['expires_in']) && time() > $_SESSION['expires_in']))
+        {
+            $json = $this->httpRequest( $access_token );
+            $json = json_decode($json,true);
+            $_SESSION['access_token'] = $json['access_token'];
+            $_SESSION['expires_in'] = time()+7200;
+            $ACCESS_TOKEN = $json["access_token"];
+        }
+        else{
+            $ACCESS_TOKEN =  $_SESSION["access_token"];
+        }
+        //构建请求二维码参数
+        //path是扫描二维码跳转的小程序路径，可以带参数?id=xxx
+        //width是二维码宽度
+        $qcode ="https://api.weixin.qq.com/cgi-bin/wxaapp/createwxaqrcode?access_token=$ACCESS_TOKEN";
+        $param = json_encode(array("path"=>"pages/index/details/details?img_id=".$img_id."&is_web=1","width"=> 150));
+
+        //POST参数
+        $result = $this->httpRequest( $qcode, $param,"POST");
+        //生成二维码
+        $base64_image ="data:image/jpeg;base64,".base64_encode( $result );
+        return $base64_image;
+    }
+    function httpRequest($url, $data='', $method='GET'){
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($curl, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']);
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1);
+        curl_setopt($curl, CURLOPT_AUTOREFERER, 1);
+        if($method=='POST')
+        {
+            curl_setopt($curl, CURLOPT_POST, 1);
+            if ($data != '')
+            {
+                curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
+            }
+        }
+
+        curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+        curl_setopt($curl, CURLOPT_HEADER, 0);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+        $result = curl_exec($curl);
+        curl_close($curl);
+        return $result;
     }
 }
 

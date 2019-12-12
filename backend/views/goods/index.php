@@ -2621,8 +2621,6 @@ $this->params['breadcrumbs'][] = $this->title;
         for(var i=0;i<objFile.files.length;i++){
             arr[i] = objFile.files[i]['name'];
         }
-        console.log(arr)
-        return false
         var data = {
             'img' : arr
         }

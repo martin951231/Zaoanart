@@ -12,6 +12,7 @@ use backend\models\ad;
 use backend\models\keepimage;
 use backend\models\Shopcar;
 use backend\models\History;
+use backend\models\filterimg;
 use moonland\phpexcel\Excel;
 use backend\models\attention;
 use backend\models\attentionUser;
@@ -146,7 +147,91 @@ class HomeController extends ActiveController
                         'keep_name' => $keep[$i]['keep_name'],
                         'heat' => $keep[$i]['heat'],
                         'attention_num' => $attention_num,
-                            'img_ratio'=> $keep[$i]['img_ratio'],
+                        'img_ratio'=> $keep[$i]['img_ratio'],
+//                        'kid' => $res2[$i][$k]['id'],
+                        'imgid' => $res2[$i][$k]['imgid'],
+                        'imgname' => $res3[$i][$k]['name'],
+                        'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image']
+                    ];
+                }
+            }
+            for($v = 0; $v<count($keep); $v++){
+                if(empty($res2[$v])){
+                    $res[$v][] = [
+                        'id' => $keep[$v]['id'],
+                        'keep_name' => $keep[$v]['keep_name'],
+                    ];
+                }
+            }
+            return $res;
+        }
+    }
+    //查询推荐收藏夹
+    public function actionFindreckeep()
+    {
+        $keep = keep::find()->select('id,keep_name,uid,heat,img_ratio')->where(['status'=>1])->limit(10)->all();
+        $keep = array_slice($keep,0,10);
+        if($keep){
+            for($i = 0; $i<count($keep);$i++){
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
+                for ($k = 0; $k<count($res2[$i]);$k++){
+                    $res3[$i][] = goods::find()->select('id,name,image,')->where(['id'=>$res2[$i][$k]['imgid']])->one();
+                    $res[$i][] = [
+                        'id' => $keep[$i]['id'],
+                        'keep_name' => $keep[$i]['keep_name'],
+                        'heat' => $keep[$i]['heat'],
+                        'attention_num' => $attention_num,
+                        'img_ratio'=> $keep[$i]['img_ratio'],
+//                        'kid' => $res2[$i][$k]['id'],
+                        'imgid' => $res2[$i][$k]['imgid'],
+                        'imgname' => $res3[$i][$k]['name'],
+                        'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image']
+                    ];
+                }
+            }
+            for($v = 0; $v<count($keep); $v++){
+                if(empty($res2[$v])){
+                    $res[$v][] = [
+                        'id' => $keep[$v]['id'],
+                        'keep_name' => $keep[$v]['keep_name'],
+                    ];
+                }
+            }
+            return $res;
+        }
+    }
+    //查询所有推荐收藏夹
+    public function actionFindkeepall()
+    {
+//        $result = keep::find()->select('id,keep_name')->where(['topping'=>1])->limit(6)->all();
+//        for($i=0;$i<count($result);$i++){
+//            $top_keep[] = [
+//                'id' => $result[$i]['id'],
+//                'keep_name' => $result[$i]['keep_name']
+//            ];
+//        }
+//        $result2 = keep::find()->select('id,keep_name')->where(['<>','topping',1])->orderBy(['heat' => SORT_ASC,])->all();
+//        for($k=0;$k<count($result2);$k++){
+//            $top_keep2[] = [
+//                'id' => $result2[$k]['id'],
+//                'keep_name' => $result2[$k]['keep_name']
+//            ];
+//        }
+//        $keep = array_values(array_merge($top_keep,$top_keep2));
+        $keep = keep::find()->select('id,keep_name,heat,img_ratio')->where(['status'=>1])->orderBy(['updated_at' => SORT_DESC,])->all();
+        if($keep){
+            for($i = 0; $i<count($keep);$i++){
+                $attention_num = attention::find()->select('id')->where(['kid'=>$keep[$i]['id']])->count();
+                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]['id']])->limit(4)->orderBy('created_at')->all();
+                for ($k = 0; $k<count($res2[$i]);$k++){
+                    $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
+                    $res[$i][] = [
+                        'id' => $keep[$i]['id'],
+                        'keep_name' => $keep[$i]['keep_name'],
+                        'attention_num' => $attention_num,
+                        'img_ratio'=> $keep[$i]['img_ratio'],
+                        'heat' => $keep[$i]['heat'],
 //                        'kid' => $res2[$i][$k]['id'],
                         'imgid' => $res2[$i][$k]['imgid'],
                         'imgname' => $res3[$i][$k]['name'],
@@ -203,14 +288,15 @@ class HomeController extends ActiveController
         $res = Yii::$app->db->createCommand()
                             ->insert('tsy_keep',[
                                 'uid' => $uid['id'],
-                                'keep_name' => $keep_name
+                                'keep_name' => $keep_name,
+                                'img_ratio'=>$num = rand(1,3),
                             ])
                             ->execute();
         $kid = Yii::$app->db->getLastInsertId();
         $arr = [
             'uid' => $uid['id'],
             'kid' => $kid,
-            'keep_name' => $keep_name
+            'keep_name' => $keep_name,
         ];
         return $arr;
     }
@@ -342,6 +428,44 @@ class HomeController extends ActiveController
                                                                                         ->where(['id'=>$img[$i][$k]['imgid']])
                                                                                         ->one()['image'].'?imageView2/1/w/250/h/250';
             }
+        }
+        return $img_info;
+    }
+    //获取滤镜记录
+    public function actionGet_filter()
+    {
+        if($_GET){
+            $tel = $_GET['tel'];
+        }else{
+            return false;
+        }
+        $uid = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $res = filterimg::find()->select('creates_at')
+            ->where(['uid'=>$uid['id']])
+            ->addGroupBy('creates_at')
+            ->orderBy(['creates_at'=>SORT_DESC])
+            ->limit(7)
+            ->all();
+        for($i = 0; $i < count($res); $i++){
+            $img[] = filterimg::find()->select('id,imgid,filter_img,img_width,img_height')->where(['uid'=>$uid['id'],'creates_at'=>$res[$i]['creates_at']])->all();
+            for($k = 0; $k< count($img[$i]); $k++){
+                $img_info[$res[$i]['creates_at']][] = [
+                    'id'=>$img[$i][$k]['id'],
+                    'imgid'=>$img[$i][$k]['imgid'],
+                    'image'=>$img[$i][$k]['filter_img'],
+                    'filter_img'=>'http://qiniu.zaoanart.com/'.$img[$i][$k]['filter_img'].'?imageView2/1/w/250/h/250',
+                    'img_width'=>$img[$i][$k]['img_width'],
+                    'img_height'=>$img[$i][$k]['img_height'],
+                    'max_width'=>goods::find()->select('max_width')->where(['id'=>$img[$i][$k]['imgid']])->one()['max_width'],
+                    'max_height'=>goods::find()->select('max_length')->where(['id'=>$img[$i][$k]['imgid']])->one()['max_length'],
+                ];
+            }
+//            for($k = 0; $k< count($img[$i]); $k++){
+//                $img_info[$res[$i]['created_at']][$img[$i][$k]['id']] = 'http://qiniu.zaoanart.com/'.
+//                    filterimg::find()->select('filter_img')
+//                        ->where(['id'=>$img[$i][$k]['id']])
+//                        ->one()['filter_img'].'?imageView2/1/w/250/h/250';
+//            }
         }
         return $img_info;
     }
@@ -502,81 +626,6 @@ class HomeController extends ActiveController
             return false;
         }
     }
-    //查询推荐收藏夹
-    public function actionFindreckeep()
-    {
-        $keep = keep::find()->select('id,keep_name')->where(['status'=>1])->all();
-        $keep = array_slice($keep,0,5);
-        if($keep){
-            for($i = 0; $i<count($keep);$i++){
-                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]])->all();
-                for ($k = 0; $k<count($res2[$i]);$k++){
-                    $res3[$i][] = goods::find()->select('id,name,image,')->where(['id'=>$res2[$i][$k]['imgid']])->one();
-                    $res[$i][] = [
-                        'id' => $keep[$i]['id'],
-                        'keep_name' => $keep[$i]['keep_name'],
-//                        'kid' => $res2[$i][$k]['id'],
-                        'imgid' => $res2[$i][$k]['imgid'],
-                        'imgname' => $res3[$i][$k]['name'],
-                        'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/2/h/400'
-                    ];
-                }
-            }
-            for($v = 0; $v<count($keep); $v++){
-                if(empty($res2[$v])){
-                    $res[$v][] = [
-                        'id' => $keep[$v]['id'],
-                        'keep_name' => $keep[$v]['keep_name'],
-                    ];
-                }
-            }
-            return $res;
-        }
-    }
-    //查询所有收藏夹
-    public function actionFindkeepall()
-    {
-        $result = keep::find()->select('id,keep_name')->where(['topping'=>1])->limit(6)->all();
-        for($i=0;$i<count($result);$i++){
-            $top_keep[] = [
-                'id' => $result[$i]['id'],
-                'keep_name' => $result[$i]['keep_name']
-            ];
-        }
-        $result2 = keep::find()->select('id,keep_name')->where(['<>','topping',1])->orderBy(['heat' => SORT_ASC,])->all();
-        for($k=0;$k<count($result2);$k++){
-            $top_keep2[] = [
-                'id' => $result2[$k]['id'],
-                'keep_name' => $result2[$k]['keep_name']
-            ];
-        }
-        $keep = array_values(array_merge($top_keep,$top_keep2));
-        if($keep){
-            for($i = 0; $i<count($keep);$i++){
-                $res2[$i] = keepimage::find()->select('id,imgid')->where(['kid'=>$keep[$i]])->all();
-                for ($k = 0; $k<count($res2[$i]);$k++){
-                    $res3[$i][] = goods::find()->select('id,name,image')->where(['id'=>$res2[$i][$k]['imgid']])->one();
-                    $res[$i][] = [
-                        'id' => $keep[$i]['id'],
-                        'keep_name' => $keep[$i]['keep_name'],
-//                        'kid' => $res2[$i][$k]['id'],
-                        'imgid' => $res2[$i][$k]['imgid'],
-                        'imgname' => $res3[$i][$k]['name'],
-                        'image' => 'http://qiniu.zaoanart.com/'.$res3[$i][$k]['image'].'?imageView2/2/h/400'
-                    ];
-                }
-            }
-            for($v = 0; $v<count($keep); $v++){
-                if(empty($res2[$v])){
-                    $res[$v][] = [
-                        'id' => $keep[$v]['id'],
-                        'keep_name' => $keep[$v]['keep_name'],
-                    ];
-                }
-            }
-            return $res;
-        }
-    }
     //查询收藏夹
     public function actionFindkeepname()
     {
@@ -587,6 +636,7 @@ class HomeController extends ActiveController
         }
         $uid = account::find()->select('id')->where(['phone'=>$tel])->one();
         $res = keep::find()->select('id,keep_name')->where(['uid'=>$uid['id']])->orderBy(['heat' => SORT_DESC])->limit(5)->all();
+        $keep = [];
         for($k=0;$k<count($res);$k++){
             $keep[] = [
                 'id' => $res[$k]['id'],
@@ -781,7 +831,6 @@ class HomeController extends ActiveController
     //记录网站访问量
     public function actionRecord_access()
     {
-        var_dump(123);die;
         $sql = 'select `id` from `tsy_access`where TO_DAYS(`created_at`) = TO_DAYS(NOW())';
         $up_goods_search_sum = 'UPDATE `tsy_access` SET `access_sum`=`access_sum`+1';
         Yii::$app->db->createCommand($up_goods_search_sum)->execute();
@@ -1156,6 +1205,101 @@ class HomeController extends ActiveController
                     return 2;//添加关注失败
                 }
             }
+        }
+    }
+
+    //修改用户信息
+    public function actionUp_allinfo()
+    {
+        $tel = $_POST['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $username = $_POST['username'];
+        $address = $_POST['address'];
+        $sex= (int)$_POST['sex'];
+        $date = $_POST['date'];
+        $res = account::updateAll(['username'=>$username,'position'=>$address,'sex'=>$sex,'birthday'=>$date],['phone'=>$tel]);
+        if($res){
+            return true;
+        }else{
+            return false;
+        }
+    }
+
+    //上传头像
+    public function actionUpicon()
+    {
+        $tel = $_POST['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $up_path = Yii::getAlias('@backend').'\web\userIcon';
+        $file = $_FILES['file'];
+        $up_error = $file['error'];
+        $up_size = $file['size'];
+        $up_tmp_name = $file['tmp_name'];
+        $up_name = $file['name'];
+        $up_type = $file['type'];
+        if($up_error>0){
+            switch($up_info['error']){
+                case 1:
+                    $err_info="上传的文件超过了 php.ini 中 upload_max_filesize 选项限制的值";
+                    break;
+                case 2:
+                    $err_info="上传文件的大小超过了 HTML 表单中 MAX_FILE_SIZE 选项指定的值";
+                    break;
+                case 3:
+                    $err_info="文件只有部分被上传";
+                    break;
+                case 4:
+                    $err_info="没有文件被上传";
+                    break;
+                case 6:
+                    $err_info="找不到临时文件夹";
+                    break;
+                case 7:
+                    $err_info="文件写入失败";
+                    break;
+                default:
+                    $err_info="未知的上传错误";
+                    break;
+            }
+            return $err_info;
+        }
+        if($up_size>10000000){
+            return 3;
+        }
+        $exten_name=pathinfo($up_name,PATHINFO_EXTENSION);
+        $new_name = 'icon_'.$uid.'.'.$exten_name;
+        $up_to_path = $up_path.'\\'.$new_name;
+        if(is_uploaded_file($up_tmp_name)){
+//            if(file_exists($up_to_path)){
+//                unlink($up_to_path);
+//            }
+            if(move_uploaded_file($up_tmp_name,$up_to_path)){
+                $res = account::updateAll(['icon'=>$new_name], ['id'=>$uid]);
+                return 1;//上传成功
+            }else{
+                return 2;//上传失败
+            }
+        }
+    }
+
+    //删除我保存的滤镜图片
+    public function actionDel_filter_img()
+    {
+        $tel = $_POST['tel'];
+        $user = account::find()->select('id')->where(['phone'=>$tel])->one();
+        $uid = $user['id'];
+        $filter_id = intval($_POST['id']);
+        if($uid && $filter_id){
+            $res = filterimg::deleteAll(['uid'=>$uid,'id'=>$filter_id]);
+            if($res){
+                return true;
+            }else{
+                return false;
+            }
+        }else{
+            return false;
         }
     }
 }

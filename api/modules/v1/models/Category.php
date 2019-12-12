@@ -77,5 +77,4 @@ class Category extends ActiveRecord implements IdentityInterface
             'updated_at' => '更新时间',
         ];
     }
-    }
 }

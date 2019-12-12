@@ -22,6 +22,7 @@ use backend\models\attention;
 use backend\models\attentionUser;
 use backend\models\accountChannel;
 use backend\models\category;
+use backend\models\addressinfo;
 use backend\models\theme;
 use backend\models\label;
 use backend\models\keep;
@@ -809,8 +810,8 @@ class WeixinController extends ActiveController
                 $res4['image'][] = [
                     'id' => $info[$i]['id'],
                     'name' => $info[$i]['name'],
-                    'category'=> (int)$res[$i]['category'],
-                    'theme'=> (int)$res[$i]['theme'],
+                    'category'=> (int)$info[$i]['category'],
+                    'theme'=> (int)$info[$i]['theme'],
                     'image' => 'http://qiniu.zaoanart.com/'.$info[$i]['image'].'?imageView2/2/w/500',
                     'img_height'=> intval($info[$i]['img_height']),
 //                    'img_height'=> $imgsize[1],
@@ -2233,6 +2234,44 @@ class WeixinController extends ActiveController
         }
         var_dump($info);die;
     }
+
+    //保存收货信息
+    public function actionSave_address_info()
+    {
+        $name = $_GET['username'];
+        $tel = $_GET['tel'];
+        $region = $_GET['region'];
+        $address = $_GET['address'];
+        $is_exist = Addressinfo::find()->select('id')->where(['username'=>$name,'tel'=>$tel,'address'=>$region.$address])->all();
+        if($is_exist){
+            return 3;
+        }
+        $res = Addressinfo::find()->select('id')->where(['username'=>$name,'tel'=>$tel])->all();
+        if($res){
+            $result = Addressinfo::updateAll(['address'=>$region.$address,'updated_at'=>date("Y-m-d H:i:s")],['username'=>$name,'tel'=>$tel]);
+            if($result){
+                return 1;
+            }else{
+                return 2;
+            }
+        }else{
+            $res2 = Yii::$app->db->createCommand()
+                ->insert('tsy_addressinfo',[
+                    'username' => $name,
+                    'tel'=>$tel,
+                    'address'=>$region.$address,
+                    'created_at'=>date("Y-m-d H:i:s"),
+                ])
+                ->execute();
+            if($res2){
+                return 1;
+            }else{
+                return 2;
+            }
+        }
+    }
+
+
 
     //更新数据库数据
     public function actionUpmysql()

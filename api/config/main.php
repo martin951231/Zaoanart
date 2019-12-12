@@ -82,6 +82,9 @@ return [
                         'GET findgoodsc' => 'findgoodsc',
                         'GET findgoodsd' => 'findgoodsd',
                         'GET findgoodsall' => 'findgoodsall',
+                        'POST upfilterimg' => 'upfilterimg',
+                        'GET upfilterimg2' => 'upfilterimg2',
+                        'GET getfilter' => 'getfilter',
                         'GET findgoods_catagory' => 'findgoods_catagory',
                         'GET findgoodsown' => 'findgoodsown',
                         'GET category_find' => 'category_find',
@@ -94,6 +97,7 @@ return [
                         'POST record_decoration' => 'record_decoration',
                         'GET getloginimg' => 'getloginimg',
                         'GET getaccessip' => 'getaccessip',
+                        'GET get_qrcode' => 'get_qrcode',
                     ]
                 ],
                 [
@@ -226,6 +230,7 @@ return [
                         'GET decrypttel' => 'decrypttel',
                         'GET jiashuiyin' => 'jiashuiyin',
                         'GET record_access_wechat' => 'record_access_wechat',
+                        'GET save_address_info' => 'save_address_info',
                         'GET upmysql' => 'upmysql',
                     ]
                 ],
@@ -236,11 +241,14 @@ return [
                     ],
                     'pluralize'  => false,
                     'extraPatterns' => [
+                        'POST del_filter_img'=>'del_filter_img',
                         'POST homeinfo' => 'homeinfo',
                         'POST up_username'=>'up_username',
                         'POST up_wechat'=>'up_wechat',
                         'POST up_address'=>'up_address',
                         'POST up_birthday'=>'up_birthday',
+                        'POST up_allinfo'=>'up_allinfo',
+                        'POST upicon'=>'upicon',
                         'POST up_newpwd'=>'up_newpwd',
                         'GET findkeep'=>'findkeep',
                         'GET finduserkeep'=>'finduserkeep',
@@ -265,6 +273,7 @@ return [
                         'GET addto_keep'=>'addto_keep',
                         'GET set_history'=>'set_history',
                         'GET get_history'=>'get_history',
+                        'GET get_filter'=>'get_filter',
                         'GET getusername'=>'getusername',
                         'GET getusername1'=>'getusername1',
                         'GET move_img'=>'move_img',
